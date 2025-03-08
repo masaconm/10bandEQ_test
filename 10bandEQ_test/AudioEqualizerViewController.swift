@@ -1,14 +1,30 @@
+//
+//  AudioEqualizerViewController.swift
+//  10bandEQ_test
+//
+//  Created by 中静暢子 on 2025/02/24.
+//
+
 import SwiftUI
 import AVFoundation
 import UniformTypeIdentifiers
-import Waveform
+// Waveform ライブラリは、SmoothWaveformView で独自実装するため不要
 
 // MARK: - Clamp Function
+/// 値を minValue と maxValue の範囲に収める（クランプする）関数
 func clamp<T: Comparable>(_ value: T, _ minValue: T, _ maxValue: T) -> T {
     return min(max(value, minValue), maxValue)
 }
 
+// MARK: - SampleBuffer
+/// 波形表示用のサンプル配列を保持する構造体
+struct SampleBuffer {
+    var samples: [Float]
+}
+
 // MARK: - EQPreset
+/// EQ プリセットのデータ構造。ユーザーが設定した EQ の各バンドの値を保持する。
+/// Codable に準拠しているので、JSON での保存／読み込みが可能。
 struct EQPreset: Identifiable, Codable {
     let id: UUID
     var name: String
@@ -22,12 +38,15 @@ struct EQPreset: Identifiable, Codable {
 }
 
 // MARK: - PlaylistItem
-struct PlaylistItem: Identifiable {
-    let id = UUID()
+/// プレイリストに追加される音声ファイルの情報を保持する構造体
+/// URL、タイトル、再生時間（秒）を含み、Codable に準拠しているので永続保存が可能。
+struct PlaylistItem: Identifiable, Codable {
+    var id = UUID()
     let url: URL
     let title: String
-    let duration: Double  // 秒
+    let duration: Double  // seconds
     
+    /// 指定した URL から AVAudioFile を読み込み、再生時間などを計算して初期化する。
     init?(url: URL) {
         self.url = url
         self.title = url.lastPathComponent
@@ -43,10 +62,13 @@ struct PlaylistItem: Identifiable {
 }
 
 // MARK: - DocumentPicker
+/// UIDocumentPickerViewController を SwiftUI で利用するための UIViewControllerRepresentable
+/// ユーザーが音声ファイルを選択するために使用する。
 struct DocumentPicker: UIViewControllerRepresentable {
     var onPick: ([URL]) -> Void
-
+    
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        // UTType.audio により音声ファイルを選択対象に
         let controller = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.audio], asCopy: true)
         controller.delegate = context.coordinator
         controller.allowsMultipleSelection = true
@@ -60,6 +82,7 @@ struct DocumentPicker: UIViewControllerRepresentable {
         Coordinator(onPick: onPick)
     }
     
+    // Coordinator は UIDocumentPickerDelegate を実装し、選択結果を onPick クロージャに渡す
     class Coordinator: NSObject, UIDocumentPickerDelegate {
         var onPick: ([URL]) -> Void
         init(onPick: @escaping ([URL]) -> Void) { self.onPick = onPick }
@@ -69,27 +92,57 @@ struct DocumentPicker: UIViewControllerRepresentable {
     }
 }
 
-// MARK: - AudioEngineViewModel
+// MARK: - グローバル関数：ファイルを Documents ディレクトリにコピーする
+/// 選択されたファイルを永続保存可能な場所（Documents ディレクトリ）にコピーする関数。
+func copyFileToDocuments(url: URL) -> URL? {
+    let fileManager = FileManager.default
+    // Documents ディレクトリの取得
+    guard let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+        return nil
+    }
+    let destinationURL = documentsDir.appendingPathComponent(url.lastPathComponent)
+    do {
+        // 同名のファイルが存在すれば削除
+        if fileManager.fileExists(atPath: destinationURL.path) {
+            try fileManager.removeItem(at: destinationURL)
+        }
+        // コピー実行
+        try fileManager.copyItem(at: url, to: destinationURL)
+        return destinationURL
+    } catch {
+        print("Failed to copy file: \(error)")
+        return nil
+    }
+}
+
+//
+// MARK: - AudioEngineViewModel.swift
+//
+
+
+// MARK: - AudioEngineViewModel (修正版)
+// AudioSessionManager, MIDIManager は別ファイルにある前提です。
 class AudioEngineViewModel: ObservableObject {
+    
+    // MARK: - プロパティ定義
     @Published var currentLanguage: String = "English"
     
-    // 10バンド EQ の周波数（Hz）
+    // 10バンド EQ の周波数設定
     let eqBandsFrequencies: [Float] = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
     @Published var eqValues: [Float] = Array(repeating: 0, count: 10)
-    @Published var level: Float = -50
     
-    // Waveform 表示用の SampleBuffer
+    // レベル（dB）、波形表示用のサンプルバッファ、再生進捗の管理
+    @Published var level: Float = -50
     @Published var sampleBuffer: SampleBuffer? = nil
-    // Waveform 上の再生進行度（0～1）
     @Published var playbackProgress: Double = 0.0
-    // ユーザーがシーク中はタイマー更新を抑制するためのフラグ
     @Published var isSeeking: Bool = false
     
+    // マスターゲイン（出力音量）
     @Published var gain: Float = 1.0 {
         didSet { audioEngine.mainMixerNode.outputVolume = gain }
     }
     
-    // オーディオエンジン関連
+    // AVAudioEngine 関連
     var audioEngine = AVAudioEngine()
     var playerNode = AVAudioPlayerNode()
     var eqNode: AVAudioUnitEQ!
@@ -97,21 +150,80 @@ class AudioEngineViewModel: ObservableObject {
     var pausedFrame: AVAudioFramePosition = 0
     var playbackTimer: Timer?
     
-    // プレイリスト：読み込んだオーディオファイルの情報を PlaylistItem として保持
+    // プレイリスト関連
     @Published var playlistItems: [PlaylistItem] = []
     @Published var currentPlaylistItem: PlaylistItem? = nil
     
-    // 組み込みプリセットとユーザー保存プリセット
+    // 組み込みプリセットおよびユーザープリセット（EQ設定）
     @Published var defaultPresets: [EQPreset] = [
         EQPreset(name: "Flat", eqValues: Array(repeating: 0, count: 10)),
         EQPreset(name: "Rock", eqValues: [5, 3, 0, -2, -2, 0, 3, 5, 7, 10])
     ]
     @Published var userPresets: [EQPreset] = []
     
+    // MIDIManager のインスタンス（MIDI コントローラー対応用）
+    var midiManager: MIDIManager? = nil
+    
+    // MIDIマッピングの配列（例として EQ の各バンド＋ GAIN を管理）
+    @Published var midiMappings: [MIDIMapping] = [
+        MIDIMapping(parameterName: "EQ 32Hz", midiCC: 16),
+        MIDIMapping(parameterName: "EQ 64Hz", midiCC: 17),
+        MIDIMapping(parameterName: "EQ 125Hz", midiCC: 18),
+        MIDIMapping(parameterName: "EQ 250Hz", midiCC: 19),
+        MIDIMapping(parameterName: "EQ 500Hz", midiCC: 20),
+        MIDIMapping(parameterName: "EQ 1kHz", midiCC: 21),
+        MIDIMapping(parameterName: "EQ 2kHz", midiCC: 22),
+        MIDIMapping(parameterName: "EQ 4kHz", midiCC: 23),
+        MIDIMapping(parameterName: "EQ 8kHz", midiCC: 24),
+        MIDIMapping(parameterName: "EQ 16kHz", midiCC: 25),
+        MIDIMapping(parameterName: "GAIN", midiCC: 26)
+    ]
+    
+    // MARK: - 初期化処理
     init() {
         loadUserPresetsFromDefaults()
+        loadPlaylistFromDefaults()
+        
+        // オーディオセッションは別ファイルの AudioSessionManager を利用
+        AudioSessionManager.configureSession()
+        
+        // MIDIManager の初期化
+        midiManager = MIDIManager()
+        midiManager?.midiMessageHandler = { [weak self] midiMessage in
+            guard let self = self else { return }
+            // MIDI メッセージが3バイト以上かつコントロールチェンジの場合
+            if midiMessage.count >= 3 {
+                let status = midiMessage[0]
+                let control = midiMessage[1]
+                let value = midiMessage[2]
+                if status & 0xF0 == 0xB0 {
+                    // カスタムマッピングのリストから、受信した CC 番号と一致するパラメーターを探す
+                    if let mapping = self.midiMappings.first(where: { $0.midiCC == Int(control) }) {
+                        // ここでは例として、EQ バンドの場合に updateEQ を呼び出す
+                        // ※ 例えば "GAIN" は別処理にするなど、条件分岐が必要です
+                        if mapping.parameterName.hasPrefix("EQ") {
+                            // マッピングの順番に対応するインデックスを決定（例："EQ 32Hz"なら index 0）
+                            if let index = self.midiMappings.firstIndex(where: { $0.id == mapping.id }) {
+                                let newGain = Float(Double(value) / 127.0 * 80.0 - 40.0)
+                                DispatchQueue.main.async {
+                                    self.updateEQ(at: index, value: newGain)
+                                }
+                            }
+                        }
+                        // GAIN などの場合は別途処理
+                        if mapping.parameterName == "GAIN" {
+                            let newGain = Float(Double(value) / 127.0 * 2.0)
+                            DispatchQueue.main.async {
+                                self.gain = newGain
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     
+    // MARK: - Audio Engine の初期化処理
     func startAudioEngine() {
         eqNode = AVAudioUnitEQ(numberOfBands: eqBandsFrequencies.count)
         for (index, band) in eqNode.bands.enumerated() {
@@ -122,8 +234,14 @@ class AudioEngineViewModel: ObservableObject {
         }
         audioEngine.attach(playerNode)
         audioEngine.attach(eqNode)
-        audioEngine.connect(playerNode, to: eqNode, format: nil)
-        audioEngine.connect(eqNode, to: audioEngine.mainMixerNode, format: nil)
+        
+        guard let stereoFormat = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 2) else {
+            print("Failed to create stereo format")
+            return
+        }
+        
+        audioEngine.connect(playerNode, to: eqNode, format: stereoFormat)
+        audioEngine.connect(eqNode, to: audioEngine.mainMixerNode, format: stereoFormat)
         
         let mainMixer = audioEngine.mainMixerNode
         mainMixer.installTap(onBus: 0, bufferSize: 1024, format: mainMixer.outputFormat(forBus: 0)) { [weak self] buffer, _ in
@@ -140,6 +258,7 @@ class AudioEngineViewModel: ObservableObject {
         }
     }
     
+    // MARK: - EQ 更新処理
     func updateEQ(at index: Int, value: Float) {
         eqValues[index] = value
         if eqNode.bands.indices.contains(index) {
@@ -148,27 +267,29 @@ class AudioEngineViewModel: ObservableObject {
         print("EQ band \(index) set to \(value)")
     }
     
+    // MARK: - レベル更新処理
     func updateLevel(from buffer: AVAudioPCMBuffer) {
         guard let channelData = buffer.floatChannelData?[0] else { return }
         let frameLength = Int(buffer.frameLength)
         let samples = Array(UnsafeBufferPointer(start: channelData, count: frameLength))
         let sum = samples.reduce(0) { $0 + $1 * $1 }
         let rms = sqrt(sum / Float(frameLength))
-        let levelValue = 20 * log10(rms + 1e-12)
-        self.level = levelValue
+        self.level = 20 * log10(rms + 1e-12)
     }
     
+    // MARK: - 再生／停止およびシーク処理
     func togglePlayback() {
         if playerNode.isPlaying {
             if let nodeTime = playerNode.lastRenderTime,
                let playerTime = playerNode.playerTime(forNodeTime: nodeTime) {
-                pausedFrame = playerTime.sampleTime
+                pausedFrame = max(playerTime.sampleTime, 0)
             }
             playerNode.stop()
             playbackTimer?.invalidate()
             playbackTimer = nil
         } else {
             guard let file = audioFile else { return }
+            pausedFrame = max(pausedFrame, 0)
             let totalFrames = file.length
             let framesToPlay = AVAudioFrameCount(totalFrames - pausedFrame)
             if framesToPlay > 0 {
@@ -186,6 +307,7 @@ class AudioEngineViewModel: ObservableObject {
     func seekToCurrentPausedFrameAndResume() {
         guard let file = audioFile else { return }
         playerNode.stop()
+        pausedFrame = max(pausedFrame, 0)
         let totalFrames = file.length
         let framesToPlay = AVAudioFrameCount(totalFrames - pausedFrame)
         if framesToPlay > 0 {
@@ -198,12 +320,12 @@ class AudioEngineViewModel: ObservableObject {
         playerNode.play()
     }
     
+    // MARK: - 再生中の進捗更新処理
     func startPlaybackTimer() {
         playbackTimer?.invalidate()
         playbackTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            if self.isSeeking { return }
-            guard let file = self.audioFile,
+            guard let self = self,
+                  let file = self.audioFile,
                   let nodeTime = self.playerNode.lastRenderTime,
                   let playerTime = self.playerNode.playerTime(forNodeTime: nodeTime) else { return }
             let overallSamplePosition = Double(self.pausedFrame) + Double(playerTime.sampleTime)
@@ -212,45 +334,96 @@ class AudioEngineViewModel: ObservableObject {
         }
     }
     
+    // MARK: - プレイリスト管理・EQプリセット管理
+    func savePlaylistToDefaults() {
+        do {
+            let data = try JSONEncoder().encode(playlistItems)
+            UserDefaults.standard.set(data, forKey: "playlistItems")
+        } catch {
+            print("Failed to encode playlist items: \(error)")
+        }
+    }
+    
+    func loadPlaylistFromDefaults() {
+        if let data = UserDefaults.standard.data(forKey: "playlistItems") {
+            do {
+                let items = try JSONDecoder().decode([PlaylistItem].self, from: data)
+                self.playlistItems = items
+            } catch {
+                print("Failed to decode playlist items: \(error)")
+            }
+        }
+    }
+    
     func loadPlaylistItem(_ item: PlaylistItem) {
         currentPlaylistItem = item
-        do {
-            let file = try AVAudioFile(forReading: item.url)
-            self.audioFile = file
-            pausedFrame = 0
-            let channelData = file.floatChannelData()![0]
-
-            let sampleCount = Int(file.length)
-            let samples: [Float] = (0..<sampleCount).map { channelData[$0] }
-            self.sampleBuffer = SampleBuffer(samples: samples)
-            playerNode.stop()
-            let totalFrames = file.length
-            let framesToPlay = AVAudioFrameCount(totalFrames - pausedFrame)
-            if framesToPlay > 0 {
-                playerNode.scheduleSegment(file,
-                                           startingFrame: pausedFrame,
-                                           frameCount: framesToPlay,
-                                           at: nil,
-                                           completionHandler: nil)
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            do {
+                let file = try AVAudioFile(forReading: item.url)
+                DispatchQueue.main.async {
+                    self.audioFile = file
+                    self.pausedFrame = 0
+                    self.playerNode.stop()
+                    self.playerNode.reset()
+                }
+                let frameCount = AVAudioFrameCount(file.length)
+                guard let pcmBuffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: frameCount) else {
+                    print("Failed to create PCM buffer")
+                    return
+                }
+                try file.read(into: pcmBuffer)
+                if let channelData = pcmBuffer.floatChannelData?[0] {
+                    let totalSamples = Int(pcmBuffer.frameLength)
+                    let maxSamples = 5000
+                    let downsampleFactor = max(totalSamples / maxSamples, 1)
+                    let samples = (0..<totalSamples).compactMap { index -> Float? in
+                        return (index % downsampleFactor == 0) ? channelData[index] : nil
+                    }
+                    DispatchQueue.main.async {
+                        self.sampleBuffer = SampleBuffer(samples: samples)
+                        print("Loaded \(samples.count) samples (downsampled from \(totalSamples))")
+                    }
+                }
+                DispatchQueue.main.async {
+                    self.playerNode.stop()
+                    self.playerNode.reset()
+                    let totalFrames = file.length
+                    let framesToPlay = AVAudioFrameCount(totalFrames)
+                    if framesToPlay > 0 {
+                        self.playerNode.scheduleSegment(file,
+                                                        startingFrame: 0,
+                                                        frameCount: framesToPlay,
+                                                        at: nil,
+                                                        completionHandler: nil)
+                    }
+                    self.playerNode.play()
+                    self.startPlaybackTimer()
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    print("Failed to load playlist item: \(error)")
+                }
             }
-            playerNode.play()
-            startPlaybackTimer()
-        } catch {
-            print("Failed to load playlist item: \(error)")
         }
     }
     
     func addAudioFileToPlaylist(url: URL) {
-        if let newItem = PlaylistItem(url: url) {
+        if let permanentURL = copyFileToDocuments(url: url),
+           let newItem = PlaylistItem(url: permanentURL) {
             if !playlistItems.contains(where: { $0.url == newItem.url }) {
                 playlistItems.append(newItem)
+                savePlaylistToDefaults()
             }
             if audioFile == nil {
                 loadPlaylistItem(newItem)
             }
+        } else {
+            print("Failed to copy and add the audio file to playlist")
         }
     }
     
+    // MARK: - EQプリセット管理
     func savePreset(with name: String) {
         let newPreset = EQPreset(name: name, eqValues: eqValues)
         userPresets.append(newPreset)
@@ -290,14 +463,294 @@ class AudioEngineViewModel: ObservableObject {
             saveUserPresetsToDefaults()
         }
     }
+} // <-- AudioEngineViewModel 終了
+
+// MARK: - 以降、その他の View 定義（SmoothWaveformView, LevelMeterViewSwiftUI, CustomVerticalSlider, HeaderView, EQContainerView, AudioEqualizerContentView, etc.）…
+
+
+// 以降、SmoothWaveformView、LevelMeterViewSwiftUI、CustomVerticalSlider、HeaderView、EQContainerView、AudioEqualizerContentView など他の View 定義は続きます…
+
+
+// MARK: - SmoothWaveformView (新UI)
+// 【仕様】
+// - 音声読み込み時は波形は画面左寄せで表示
+// - zoomScale に応じて波形の横幅が拡大
+// - playbackProgress (0...1) に基づき、波形全体での x 座標を計算し、
+//   zoomScale > 1 の場合はオフセットを計算して、常に再生位置が画面中央に表示される
+struct SmoothWaveformView: View {
+    let sampleBuffer: SampleBuffer   // -1...1 に正規化済みサンプル
+    let playbackProgress: Double     // 0...1 (再生進行度)
+    let zoomScale: CGFloat           // 拡大率（外部から渡す）
+    
+    var body: some View {
+        GeometryReader { geo in
+            // コンテナサイズ
+            let containerWidth = geo.size.width
+            let containerHeight = geo.size.height
+            
+            // 波形全体の横幅 = コンテナ幅 × zoomScale
+            let waveformWidth = containerWidth * zoomScale
+            
+            // 再生位置の x 座標 = playbackProgress × waveformWidth
+            let playbackX = CGFloat(playbackProgress) * waveformWidth
+            
+            // 拡大時は、再生位置が常に画面中央に来るように offset を計算
+            let offsetX: CGFloat = waveformWidth > containerWidth ? (containerWidth / 2 - playbackX) : 0
+            
+            // サンプル配列から各点の座標を生成
+            let samples = sampleBuffer.samples.map { CGFloat($0) }
+            let sampleCount = max(samples.count, 1)
+            let step = waveformWidth / CGFloat(sampleCount - 1)
+            let points: [CGPoint] = samples.enumerated().map { (index, sample) in
+                let x = CGFloat(index) * step
+                // サンプル値により上下の位置を決定（中央を 0 とする）
+                let y = containerHeight / 2 - sample * (containerHeight / 2)
+                return CGPoint(x: x, y: y)
+            }
+            
+            ZStack(alignment: .leading) {
+                // 波形を滑らかな曲線（補間 Path）として描画
+                Path.smoothPath(with: points)
+                    .stroke(Color.blue, lineWidth: 1)
+                    .frame(width: waveformWidth, height: containerHeight)
+                    .offset(x: offsetX)
+            }
+        }
+    }
 }
 
+extension Path {
+    /// 点群から滑らかな曲線の Path を生成する拡張関数
+    static func smoothPath(with points: [CGPoint]) -> Path {
+        var path = Path()
+        guard points.count > 1 else { return path }
+        path.move(to: points[0])
+        for i in 1..<points.count {
+            let prev = points[i - 1]
+            let curr = points[i]
+            let midPoint = CGPoint(x: (prev.x + curr.x) / 2, y: (prev.y + curr.y) / 2)
+            path.addQuadCurve(to: midPoint, control: prev)
+            if i == points.count - 1 {
+                path.addQuadCurve(to: curr, control: curr)
+            }
+        }
+        return path
+    }
+}
+
+// MARK: - LevelMeterViewSwiftUI (新デザイン)
+// 【仕様】
+// 下から上にしきい値ごとに色を積み上げる表示
+struct LevelMeterViewSwiftUI: View {
+    var level: Float  // 現在の dB 値
+    // しきい値とそれに対応する色（上に行くほど dB 値が大きい＝音が大きい）
+    let thresholds: [(lkfs: Float, color: Color)] = [
+        (0, .red),
+        (-3, .red),
+        (-6, .red),
+        (-9, .orange),
+        (-18, .orange),
+        (-23, .yellow),
+        (-27, .yellow),
+        (-36, .green),
+        (-45, .green),
+        (-54, .green),
+        (-64, .green)
+    ]
+    var body: some View {
+        GeometryReader { geo in
+            let maxHeight = geo.size.height
+            let sectionHeight = maxHeight / CGFloat(thresholds.count)
+            VStack(spacing: 0) {
+                // thresholds を下から上に積み上げる
+                ForEach(thresholds, id: \.lkfs) { threshold in
+                    Rectangle()
+                        .fill(level > threshold.lkfs ? threshold.color : Color.clear)
+                        .frame(height: sectionHeight)
+                }
+            }
+            .frame(maxHeight: .infinity, alignment: .bottom)
+            .border(Color.white)
+        }
+    }
+}
+
+// MARK: - Custom Slider Components
+/// スライダートラック：背景と充填部分を表示
+//struct SliderTrack: View {
+//    var percentage: CGFloat       // 充填部分の高さ（スライダーの値に基づく）
+//    var width: CGFloat            // トラックの横幅
+//    var trackColor: Color = .gray
+//    var fillColor: Color = .blue
+//    var body: some View {
+//        ZStack(alignment: .bottom) {
+//            Rectangle()
+//                .fill(trackColor)
+//                .frame(width: width)
+//            Rectangle()
+//                .fill(fillColor)
+//                .frame(width: width, height: percentage)
+//        }
+//    }
+//}
+
+/// つまみ部分：固定サイズの正方形
+struct SliderThumb: View {
+    var thumbSize: CGFloat = 30
+    var thumbColor: Color = .white
+    var body: some View {
+        // 正方形のつまみを表示
+        Rectangle()
+            .fill(thumbColor)
+            .frame(width: thumbSize, height: thumbSize)
+            .shadow(radius: 2)
+    }
+}
+
+/// カスタム Vertical Slider：つまみとトラックを個別に描画する縦型スライダー
+struct CustomVerticalSlider: View {
+    @Binding var value: Float
+    var range: ClosedRange<Float>
+    var thumbSize: CGFloat = 30
+    var trackColor: Color = .gray
+    var fillColor: Color = .blue
+    var thumbColor: Color = .white
+    var body: some View {
+        GeometryReader { geo in
+            let height = geo.size.height
+            let width = geo.size.width
+            // 現在の値を 0～1 の割合に変換
+            let percentage = CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound))
+            let fillHeight = height * percentage
+            let thumbY = height * (1 - percentage)
+            ZStack {
+                SliderTrack(percentage: fillHeight, width: width, trackColor: trackColor, fillColor: fillColor)
+                SliderThumb(thumbSize: thumbSize, thumbColor: thumbColor)
+                    .position(x: width / 2, y: thumbY)
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { gesture in
+                                let clampedY = min(max(gesture.location.y, 0), height)
+                                let newPercentage = 1 - (clampedY / height)
+                                let newValue = range.lowerBound + Float(newPercentage) * (range.upperBound - range.lowerBound)
+                                self.value = newValue
+                            }
+                    )
+            }
+        }
+    }
+}
+
+
+
+// MARK: - EQContainerView
+/// EQContainerView：EQスライダー群、GAINスライダー、レベルメーターを横並びで表示する
+struct EQContainerView: View {
+    let eqBands: [Float]
+    @Binding var eqValues: [Float]
+    var onSliderChanged: (Int, Float) -> Void
+    var level: Float
+    @Binding var gain: Float
+    
+    var body: some View {
+        GeometryReader { geo in
+            let totalWidth = geo.size.width
+            let containerHeight = geo.size.height
+            // スライダー部分の高さ（EQやGAINはこの高さで表示）
+            let sliderHeight = containerHeight * 0.66
+            // ラベル部分の高さ（各スライダーの下部に表示される）
+            let labelHeight = containerHeight * 0.34
+            
+            let eqAreaWidth = totalWidth * 0.6
+            let gainSliderWidth = totalWidth * 0.1
+            let meterWidth = (totalWidth - eqAreaWidth - gainSliderWidth) / 3
+            
+            HStack(spacing: 10) {
+                // EQスライダー群：各バンドのスライダーと、その下に周波数と dB のラベル
+                HStack(alignment: .bottom, spacing: 10) {
+                    ForEach(eqBands.indices, id: \.self) { index in
+                        VStack(spacing: 2) {
+                            CustomVerticalSlider(
+                                value: Binding(
+                                    get: { eqValues[index] },
+                                    set: { newValue in onSliderChanged(index, newValue) }
+                                ),
+                                range: -40...40,
+                                thumbSize: 30,
+                                trackColor: .gray,
+                                fillColor: .blue,
+                                thumbColor: .white
+                            )
+                            .frame(width: 30, height: sliderHeight)
+                            
+                            Text(eqBands[index] >= 1000 ?
+                                 "\(eqBands[index]/1000, specifier: "%.1f") kHz" :
+                                 "\(Int(eqBands[index])) Hz")
+                                .font(.caption)
+                                .foregroundColor(.white)
+                                .frame(height: labelHeight / 6)
+                            
+                            Text("\(eqValues[index], specifier: "%.1f") dB")
+                                .font(.caption2)
+                                .foregroundColor(.white)
+                                .frame(height: labelHeight / 4)
+                        }
+                        .frame(height: containerHeight)
+                    }
+                }
+                .frame(width: eqAreaWidth)
+                
+                // GAINスライダー：上部はスライダー、下部にラベルと数値
+                VStack(spacing: 2) {
+                    CustomVerticalSlider(
+                        value: $gain,
+                        range: 0...2,
+                        thumbSize: 30,
+                        trackColor: .gray,
+                        fillColor: .blue,
+                        thumbColor: .white
+                    )
+                    .frame(width: 30, height: sliderHeight)
+                    
+                    Text("Gain")
+                        .font(.caption)
+                        .foregroundColor(.white)
+                        .frame(height: labelHeight / 6)
+                    Text("\(gain, specifier: "%.2f")")
+                        .font(.caption2)
+                        .foregroundColor(.white)
+                        .frame(height: labelHeight / 4)
+                }
+                .frame(width: gainSliderWidth)
+                
+                // レベルメーター：バー部分と下部にラベルを配置
+                VStack(spacing: 2) {
+                    LevelMeterViewSwiftUI(level: level)
+                        .frame(height: sliderHeight)
+                    Text("Current Loudness")
+                        .font(.caption)
+                        .foregroundColor(.white)
+                        .frame(height: labelHeight / 6)
+                    Text(String(format: "%.2f dB", level))
+                        .font(.caption2)
+                        .foregroundColor(.white)
+                        .frame(height: labelHeight / 4)
+                }
+                .frame(width: meterWidth)
+            }
+            .padding(.horizontal, 10)
+        }
+        .background(Color.black.opacity(0.2))
+    }
+}
+
+
 // MARK: - PresetSaveView
+/// ユーザーが EQ プリセットを保存するための画面
 struct PresetSaveView: View {
     @Environment(\.presentationMode) var presentationMode
     @ObservedObject var viewModel: AudioEngineViewModel
     @State private var presetName: String = ""
-    
     var body: some View {
         NavigationView {
             Form {
@@ -320,6 +773,7 @@ struct PresetSaveView: View {
 }
 
 // MARK: - PresetLoadView
+/// ユーザーが保存した EQ プリセットを読み込むための画面
 struct PresetLoadView: View {
     @Environment(\.presentationMode) var presentationMode
     @ObservedObject var viewModel: AudioEngineViewModel
@@ -329,26 +783,38 @@ struct PresetLoadView: View {
             List {
                 Section(header: Text("Default Presets")) {
                     ForEach(viewModel.defaultPresets) { preset in
-                        Button(preset.name) {
+                        Button(action: {
                             viewModel.applyPreset(preset)
                             presentationMode.wrappedValue.dismiss()
+                        }) {
+                            Text(preset.name)
                         }
+                        .buttonStyle(PlainButtonStyle())
                     }
                 }
                 Section(header: Text("User Presets")) {
                     ForEach(viewModel.userPresets) { preset in
                         HStack {
-                            Button(preset.name) {
+                            // 左側：タップでプリセット適用
+                            Button(action: {
                                 viewModel.applyPreset(preset)
                                 presentationMode.wrappedValue.dismiss()
+                            }) {
+                                Text(preset.name)
+                                    .foregroundColor(.primary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                             }
-                            Spacer()
+                            .buttonStyle(PlainButtonStyle())
+                            
+                            // 右側：削除ボタン
                             Button(action: {
                                 viewModel.removePreset(named: preset.name)
                             }) {
                                 Image(systemName: "trash")
                                     .foregroundColor(.red)
                             }
+                            .buttonStyle(PlainButtonStyle())
+                            .frame(width: 44, height: 44)
                         }
                     }
                 }
@@ -363,323 +829,50 @@ struct PresetLoadView: View {
 }
 
 // MARK: - PlaylistView
+/// プレイリスト画面。各音声ファイル項目を表示し、タップで再生切り替え、ゴミ箱ボタンで削除できる
 struct PlaylistView: View {
     @Environment(\.presentationMode) var presentationMode
     @ObservedObject var viewModel: AudioEngineViewModel
     
     var body: some View {
         NavigationView {
-            List(viewModel.playlistItems) { item in
-                HStack {
-                    VStack(alignment: .leading) {
-                        Text(item.title)
-                            .font(.headline)
-                        Text(String(format: "Duration: %.2f sec", item.duration))
-                            .font(.subheadline)
+            List {
+                ForEach(viewModel.playlistItems) { item in
+                    HStack {
+                        // 左側：タップで音声を選択してシートを閉じる
+                        VStack(alignment: .leading) {
+                            Text(item.title)
+                                .font(.headline)
+                            Text(String(format: "Duration: %.2f sec", item.duration))
+                                .font(.subheadline)
+                        }
+                        .onTapGesture {
+                            viewModel.loadPlaylistItem(item)
+                            presentationMode.wrappedValue.dismiss()
+                        }
+                        Spacer()
+                        // 右側：削除ボタン。タップしてもシートは閉じない
+                        Button(action: {
+                            if let index = viewModel.playlistItems.firstIndex(where: { $0.id == item.id }) {
+                                viewModel.playlistItems.remove(at: index)
+                                viewModel.savePlaylistToDefaults()
+                                // 現在再生中の項目が削除された場合、クリアする
+                                if viewModel.currentPlaylistItem?.id == item.id {
+                                    viewModel.currentPlaylistItem = nil
+                                }
+                            }
+                        }) {
+                            Image(systemName: "trash")
+                                .foregroundColor(.red)
+                        }
                     }
-                    Spacer()
-                }
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    viewModel.loadPlaylistItem(item)
-                    presentationMode.wrappedValue.dismiss()
+                    .padding(.vertical, 4)
                 }
             }
             .navigationTitle("Playlist")
-            .navigationBarItems(trailing: Button("Cancel") {
+            .navigationBarItems(trailing: Button("Done") {
                 presentationMode.wrappedValue.dismiss()
             })
-        }
-    }
-}
-
-// MARK: - HeaderView
-struct HeaderView: View {
-    @Binding var currentLanguage: String
-    var body: some View {
-        GeometryReader { geo in
-            HStack {
-                Image("logo")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 40, height: 40)
-                    .padding(.leading, 10)
-                Spacer()
-                Menu {
-                    Button("English") { currentLanguage = "English" }
-                    Button("日本語") { currentLanguage = "日本語" }
-                } label: {
-                    Text(currentLanguage)
-                        .frame(width: 120, height: 30)
-                        .background(Color.white)
-                        .cornerRadius(5)
-                }
-                Spacer()
-                if geo.size.width > geo.size.height {
-                    Button("Presets") { }
-                        .frame(width: 120, height: 30)
-                        .background(Color.white)
-                        .cornerRadius(5)
-                        .padding(.trailing, 10)
-                }
-            }
-        }
-        .frame(height: 60)
-        .background(Color.gray)
-    }
-}
-
-// MARK: - EQContainerView
-struct EQContainerView: View {
-    let eqBands: [Float]
-    @Binding var eqValues: [Float]
-    var onSliderChanged: (Int, Float) -> Void
-    var level: Float
-    @Binding var gain: Float
-    
-    var body: some View {
-        GeometryReader { geo in
-            let totalWidth = geo.size.width
-            let containerHeight = geo.size.height
-            let sliderHeight = containerHeight * 0.66
-            let labelHeight = containerHeight * 0.34
-            
-            let eqAreaWidth = totalWidth * 0.6
-            let gainSliderWidth = totalWidth * 0.1
-            let meterWidth = (totalWidth - eqAreaWidth - gainSliderWidth) / 3
-            
-            HStack(spacing: 10) {
-                // EQスライダー群
-                HStack(alignment: .bottom, spacing: 10) {
-                    ForEach(eqBands.indices, id: \.self) { index in
-                        VStack(spacing: 2) {
-                            Slider(value: Binding(
-                                get: { eqValues[index] },
-                                set: { newValue in
-                                    onSliderChanged(index, newValue)
-                                }
-                            ), in: -40...40)
-                            .rotationEffect(.degrees(-90))
-                            .frame(height: sliderHeight)
-                            
-                            Text(eqBands[index] >= 1000 ?
-                                 "\(eqBands[index]/1000, specifier: "%.1f") kHz" :
-                                 "\(Int(eqBands[index])) Hz")
-                                .font(.caption)
-                                .foregroundColor(.white)
-                                .frame(height: labelHeight / 2)
-                            
-                            Text("\(eqValues[index], specifier: "%.1f") dB")
-                                .font(.caption2)
-                                .foregroundColor(.white)
-                                .frame(height: labelHeight / 2)
-                        }
-                        .frame(height: containerHeight)
-                    }
-                }
-                .frame(width: eqAreaWidth)
-                
-                // ゲインスライダー
-                VStack(spacing: 2) {
-                    Slider(value: $gain, in: 0...2)
-                        .rotationEffect(.degrees(-90))
-                        .frame(height: sliderHeight)
-                    Text("Gain")
-                        .font(.caption)
-                        .foregroundColor(.white)
-                        .frame(height: labelHeight / 2)
-                    Text("\(gain, specifier: "%.2f")")
-                        .font(.caption2)
-                        .foregroundColor(.white)
-                        .frame(height: labelHeight / 2)
-                }
-                .frame(width: gainSliderWidth)
-                
-                // レベルメーター
-                LevelMeterViewSwiftUI(level: level)
-                    .frame(width: meterWidth)
-            }
-            .padding(.horizontal, 10)
-        }
-        .background(Color.black.opacity(0.2))
-    }
-}
-
-// MARK: - LevelMeterViewSwiftUI
-struct LevelMeterViewSwiftUI: View {
-    var level: Float
-    var body: some View {
-        GeometryReader { geo in
-            let normalized = max(min((level + 100) / 100, 1), 0)
-            let meterHeight = geo.size.height * CGFloat(normalized)
-            ZStack(alignment: .bottomLeading) {
-                Rectangle().fill(Color.gray)
-                Rectangle()
-                    .fill(level > -6 ? Color.red :
-                          level > -18 ? Color.orange :
-                          level > -27 ? Color.yellow : Color.green)
-                    .frame(height: meterHeight)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Current Loudness")
-                        .font(.caption2)
-                        .foregroundColor(.white)
-                    Text(String(format: "%.2f dB", level))
-                        .font(.caption2)
-                        .foregroundColor(.white)
-                }
-                .padding(4)
-            }
-            .border(Color.white)
-        }
-    }
-}
-
-// MARK: - AudioEqualizerContentView
-struct AudioEqualizerContentView: View {
-    @StateObject var viewModel = AudioEngineViewModel()
-    @State private var zoomScale: CGFloat = 1.0
-    @State private var showingSavePreset = false
-    @State private var showingLoadPreset = false
-    @State private var showingPlaylist = false
-    @State private var showingPicker = false  // オーディオファイル選択用
-    
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                HeaderView(currentLanguage: $viewModel.currentLanguage)
-                    .frame(height: 60)
-                
-                if let current = viewModel.currentPlaylistItem {
-                    VStack {
-                        Text(current.title)
-                            .font(.headline)
-                            .foregroundColor(.white)
-                        Text(String(format: "Duration: %.2f sec", current.duration))
-                            .font(.subheadline)
-                            .foregroundColor(.white)
-                    }
-                    .padding(.vertical, 5)
-                }
-                
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        if let sampleBuffer = viewModel.sampleBuffer {
-                            Waveform(samples: sampleBuffer)
-                                .foregroundColor(.blue)
-                                .scaleEffect(x: zoomScale, y: 1, anchor: .leading)
-                        } else {
-                            Text("Audio file not loaded")
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .background(Color.gray)
-                        }
-                        Rectangle()
-                            .fill(Color.red)
-                            .frame(width: 2)
-                            .position(x: CGFloat(viewModel.playbackProgress) * geo.size.width,
-                                      y: geo.size.height / 2)
-                    }
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                viewModel.isSeeking = true
-                                let newProgress = clamp(Double(value.location.x) / Double(geo.size.width), 0.0, 1.0)
-                                viewModel.playbackProgress = newProgress
-                            }
-                            .onEnded { value in
-                                let newProgress = clamp(Double(value.location.x) / Double(geo.size.width), 0.0, 1.0)
-                                viewModel.playbackProgress = newProgress
-                                if let file = viewModel.audioFile {
-                                    viewModel.pausedFrame = AVAudioFramePosition(newProgress * Double(file.length))
-                                    if viewModel.playerNode.isPlaying {
-                                        viewModel.seekToCurrentPausedFrameAndResume()
-                                    }
-                                }
-                                viewModel.isSeeking = false
-                            }
-                    )
-                    .simultaneousGesture(
-                        MagnificationGesture()
-                            .onChanged { value in
-                                zoomScale = value
-                            }
-                            .onEnded { value in
-                                zoomScale = value
-                            }
-                    )
-                }
-                .frame(height: 150)
-                
-                EQContainerView(eqBands: viewModel.eqBandsFrequencies,
-                                eqValues: $viewModel.eqValues,
-                                onSliderChanged: viewModel.updateEQ(at:value:),
-                                level: viewModel.level,
-                                gain: $viewModel.gain)
-                    .frame(height: 400)
-                
-                HStack(spacing: 20) {
-                    Button("Play / Pause") {
-                        viewModel.togglePlayback()
-                    }
-                    .padding()
-                    .background(Color.white)
-                    .cornerRadius(5)
-                    
-                    Button("Select Audio File") {
-                        showingPicker = true
-                    }
-                    .padding()
-                    .background(Color.white)
-                    .cornerRadius(5)
-                    
-                    Button("Save Preset") {
-                        showingSavePreset = true
-                    }
-                    .padding()
-                    .background(Color.white)
-                    .cornerRadius(5)
-                    
-                    Button("Load Preset") {
-                        showingLoadPreset = true
-                    }
-                    .padding()
-                    .background(Color.white)
-                    .cornerRadius(5)
-                    
-                    Button("Playlist") {
-                        showingPlaylist = true
-                    }
-                    .padding()
-                    .background(Color.white)
-                    .cornerRadius(5)
-                }
-                .padding(.bottom, 40)
-                
-                Spacer()
-            }
-        }
-        .background(Color.black)
-        .edgesIgnoringSafeArea(.all)
-        .onAppear {
-            viewModel.startAudioEngine()
-        }
-        .sheet(isPresented: $showingSavePreset) {
-            PresetSaveView(viewModel: viewModel)
-        }
-        .sheet(isPresented: $showingLoadPreset) {
-            PresetLoadView(viewModel: viewModel)
-        }
-        .sheet(isPresented: $showingPlaylist) {
-            PlaylistView(viewModel: viewModel)
-        }
-        .sheet(isPresented: $showingPicker) {
-            DocumentPicker { urls in
-                for url in urls {
-                    viewModel.addAudioFileToPlaylist(url: url)
-                }
-                showingPicker = false
-            }
         }
     }
 }
