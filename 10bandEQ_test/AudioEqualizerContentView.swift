@@ -1,33 +1,26 @@
-//
-//  AudioEqualizerContentView.swift
-//  10bandEQ_test
-//
-//  Created by 中静暢子 on 2025/03/08.
-//
 import SwiftUI
 import AVFoundation
 
-// ActiveSheet の定義（ここに定義しても、共通ファイルにしてもOK）
 enum ActiveSheet: Identifiable {
-    case savePreset, loadPreset, playlist, picker, audioSettings, midiMapping
+    case savePreset, loadPreset, playlist, picker, settings, midiMapping
     var id: Int { hashValue }
 }
 
 struct AudioEqualizerContentView: View {
     @StateObject var viewModel = AudioEngineViewModel()
     @State private var zoomScale: CGFloat = 1.0
-    // activeSheet によって、どのシートを表示するかを管理する
+    // 各シート表示用の状態
     @State private var activeSheet: ActiveSheet? = nil
 
     var body: some View {
         VStack(spacing: 0) {
-            // ヘッダー部分。Audio Settings ボタンのタップで activeSheet を .audioSettings に変更
-            HeaderView(currentLanguage: $viewModel.currentLanguage, audioSettingsAction: {
-                activeSheet = .audioSettings
+            // ヘッダー：Settings ボタン（例）※必要に応じて変更
+            HeaderView(settingsAction: {
+                activeSheet = .settings
             })
             .frame(height: 60)
             
-            // 現在再生中の音声ファイル情報の表示
+            // 現在再生中の音声ファイル情報表示
             if let current = viewModel.currentPlaylistItem {
                 VStack {
                     Text(current.title)
@@ -40,7 +33,7 @@ struct AudioEqualizerContentView: View {
                 .padding(.vertical, 5)
             }
             
-            // 波形表示領域
+            // 波形表示領域（簡易例）
             GeometryReader { geo in
                 let containerWidth = geo.size.width
                 let containerHeight = geo.size.height
@@ -115,9 +108,7 @@ struct AudioEqualizerContentView: View {
             
             // 拡大縮小ボタン
             HStack(spacing: 20) {
-                Button(action: {
-                    zoomScale = max(zoomScale / 1.2, 0.5)
-                }) {
+                Button(action: { zoomScale = max(zoomScale / 1.2, 0.5) }) {
                     Text("–")
                         .font(.largeTitle)
                         .frame(width: 44, height: 44)
@@ -125,9 +116,7 @@ struct AudioEqualizerContentView: View {
                         .cornerRadius(8)
                         .foregroundColor(.white)
                 }
-                Button(action: {
-                    zoomScale = zoomScale * 1.2
-                }) {
+                Button(action: { zoomScale = zoomScale * 1.2 }) {
                     Text("+")
                         .font(.largeTitle)
                         .frame(width: 44, height: 44)
@@ -137,7 +126,7 @@ struct AudioEqualizerContentView: View {
                 }
             }
             
-            // EQ、GAIN、Level メーター
+            // EQ、GAIN、Level メーター表示
             EQContainerView(eqBands: viewModel.eqBandsFrequencies,
                             eqValues: $viewModel.eqValues,
                             onSliderChanged: viewModel.updateEQ(at:value:),
@@ -145,42 +134,32 @@ struct AudioEqualizerContentView: View {
                             gain: $viewModel.gain)
                 .frame(height: 400)
             
-            // 各シート表示用の操作ボタン群
+            // 各シート表示用の操作ボタン群（ここに MIDI Mapping ボタンを追加）
             HStack(spacing: 20) {
-                Button("Play / Pause") {
-                    viewModel.togglePlayback()
-                }
-                .padding()
-                .background(Color.white)
-                .cornerRadius(5)
-                
-                Button("Select Audio File") {
-                    activeSheet = .picker
-                }
-                .padding()
-                .background(Color.white)
-                .cornerRadius(5)
-                
-                Button("Save Preset") {
-                    activeSheet = .savePreset
-                }
-                .padding()
-                .background(Color.white)
-                .cornerRadius(5)
-                
-                Button("Load Preset") {
-                    activeSheet = .loadPreset
-                }
-                .padding()
-                .background(Color.white)
-                .cornerRadius(5)
-                
-                Button("Playlist") {
-                    activeSheet = .playlist
-                }
-                .padding()
-                .background(Color.white)
-                .cornerRadius(5)
+                Button("Play / Pause") { viewModel.togglePlayback() }
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(5)
+                Button("Select Audio File") { activeSheet = .picker }
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(5)
+                Button("Save Preset") { activeSheet = .savePreset }
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(5)
+                Button("Load Preset") { activeSheet = .loadPreset }
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(5)
+                Button("Playlist") { activeSheet = .playlist }
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(5)
+                Button("MIDI Mapping") { activeSheet = .midiMapping }
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(5)
             }
             .padding(.bottom, 40)
             
@@ -189,14 +168,15 @@ struct AudioEqualizerContentView: View {
         .background(Color.black)
         .edgesIgnoringSafeArea(.all)
         .onAppear {
-            // ビューが表示されたとき、AudioEngine が動作していなければ起動
             if !viewModel.audioEngine.isRunning {
                 viewModel.startAudioEngine()
             }
         }
-        // activeSheet に応じたシートを 1 つの .sheet モディファイアで表示
-        .sheet(item: $activeSheet) { (sheet: ActiveSheet) in
+        // 各種シートの表示
+        .sheet(item: $activeSheet) { sheet in
             switch sheet {
+            case .settings:
+                SettingsView()
             case .savePreset:
                 PresetSaveView(viewModel: viewModel)
             case .loadPreset:
@@ -210,8 +190,6 @@ struct AudioEqualizerContentView: View {
                     }
                     activeSheet = nil
                 }
-            case .audioSettings:
-                AudioInterfaceSettingsView()
             case .midiMapping:
                 MIDIMappingSettingsView(mappings: $viewModel.midiMappings)
             }

@@ -116,9 +116,6 @@ func copyFileToDocuments(url: URL) -> URL? {
 }
 
 //
-// MARK: - AudioEngineViewModel.swift
-//
-
 
 // MARK: - AudioEngineViewModel (修正版)
 // AudioSessionManager, MIDIManager は別ファイルにある前提です。
@@ -174,9 +171,9 @@ class AudioEngineViewModel: ObservableObject {
         MIDIMapping(parameterName: "EQ 1kHz", midiCC: 21),
         MIDIMapping(parameterName: "EQ 2kHz", midiCC: 22),
         MIDIMapping(parameterName: "EQ 4kHz", midiCC: 23),
-        MIDIMapping(parameterName: "EQ 8kHz", midiCC: 24),
-        MIDIMapping(parameterName: "EQ 16kHz", midiCC: 25),
-        MIDIMapping(parameterName: "GAIN", midiCC: 26)
+        MIDIMapping(parameterName: "EQ 8kHz", midiCC: 5),
+        MIDIMapping(parameterName: "EQ 16kHz", midiCC: 6),
+        MIDIMapping(parameterName: "GAIN", midiCC: 7)
     ]
     
     // MARK: - 初期化処理

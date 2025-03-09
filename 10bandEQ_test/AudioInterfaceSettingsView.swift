@@ -1,87 +1,82 @@
 import SwiftUI
 import AVFoundation
 
+/// オーディオインターフェースの設定画面
 struct AudioInterfaceSettingsView: View {
     @State private var availableInputs: [AVAudioSessionPortDescription] = []
     @State private var selectedInput: AVAudioSessionPortDescription?
-    @State private var currentOutputs: [AVAudioSessionPortDescription] = []
     @State private var showingErrorAlert = false
     @State private var errorMessage = ""
     
     var body: some View {
         NavigationView {
-            List {
-                // 出力機器情報を表示（現在の出力ルート）
-                Section(header: Text("Output Devices")) {
-                    if currentOutputs.isEmpty {
-                        Text("No active outputs")
-                    } else {
-                        ForEach(currentOutputs, id: \.uid) { output in
-                            HStack {
-                                Text(output.portName)
-                                Spacer()
-                                Text("Active")
-                                    .foregroundColor(.green)
-                            }
-                        }
-                    }
-                }
+            VStack {
+                // 現在の出力デバイス名を表示
+                Text("現在の出力: \(currentOutputName)")
+                    .font(.headline)
+                    .padding()
                 
-                // 入力機器一覧を表示（利用可能な入力）
-                Section(header: Text("Input Devices")) {
-                    if availableInputs.isEmpty {
-                        Text("No available inputs")
-                    } else {
-                        ForEach(availableInputs, id: \.uid) { input in
-                            HStack {
-                                Text(input.portName)
-                                Spacer()
-                                if input == selectedInput {
-                                    Text("Selected")
-                                        .foregroundColor(.green)
+                // 利用可能な入力デバイスの一覧を表示
+                List {
+                    Section(header: Text("入力デバイス")) {
+                        if availableInputs.isEmpty {
+                            Text("利用可能な入力がありません")
+                        } else {
+                            ForEach(availableInputs, id: \.uid) { input in
+                                HStack {
+                                    Text(input.portName)
+                                    Spacer()
+                                    if input == selectedInput {
+                                        Text("選択中")
+                                            .foregroundColor(.green)
+                                    }
+                                }
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    setPreferredInput(input)
                                 }
                             }
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                setPreferredInput(input)
-                            }
                         }
                     }
                 }
+                .listStyle(InsetGroupedListStyle())
             }
-            .listStyle(InsetGroupedListStyle())
-            .navigationTitle("Audio Interface Settings")
-            .navigationBarItems(trailing: Button("Refresh") {
+            .navigationTitle("オーディオインターフェース設定")
+            .navigationBarItems(trailing: Button("更新") {
                 loadDevices()
             })
             .onAppear {
                 loadDevices()
             }
             .alert(isPresented: $showingErrorAlert) {
-                Alert(title: Text("Error"),
+                Alert(title: Text("エラー"),
                       message: Text(errorMessage),
                       dismissButton: .default(Text("OK")))
             }
         }
     }
     
-    /// 利用可能な入力・現在の出力情報を取得する
+    /// 現在の出力デバイス名を返す
+    private var currentOutputName: String {
+        let session = AVAudioSession.sharedInstance()
+        return session.currentRoute.outputs.first?.portName ?? "不明"
+    }
+    
+    /// 利用可能な入力と現在の設定を取得する
     private func loadDevices() {
         let session = AVAudioSession.sharedInstance()
         availableInputs = session.availableInputs ?? []
         selectedInput = session.preferredInput
-        currentOutputs = session.currentRoute.outputs
     }
     
-    /// タップされた入力を preferredInput として設定する
+    /// 指定された入力デバイスを優先入力として設定する
     private func setPreferredInput(_ input: AVAudioSessionPortDescription) {
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setPreferredInput(input)
             selectedInput = input
-            print("Preferred input set to \(input.portName)")
         } catch {
-            errorMessage = "Error setting preferred input: \(error.localizedDescription)"
+            errorMessage = "入力設定の変更に失敗しました: \(error.localizedDescription)"
             showingErrorAlert = true
         }
     }
