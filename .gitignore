@@ -1,3 +1,2 @@
-echo -e ".DS_Store\n10bandEQ_test.xcodeproj/project.xcworkspace/xcuserdata/" >> .gitignore
-git rm --cached .DS_Store
-
+git config --global core.excludesfile ~/.gitignore_global
+echo ".DS_Store" >> ~/.gitignore_global
