@@ -4,3 +4,4 @@ echo ".DS_Store" >> ~/.gitignore_global
 10bandEQ_test.xcodeproj/project.xcworkspace/xcuserdata/
 .DS_Store
 .DS_Store
+.DS_Store
