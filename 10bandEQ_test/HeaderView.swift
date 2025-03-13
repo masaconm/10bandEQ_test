@@ -1,3 +1,5 @@
+//HeaderView.swift
+
 import SwiftUI
 
 /// HeaderView: Displays the logo and a left‐aligned Settings button.
