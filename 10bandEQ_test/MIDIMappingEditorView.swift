@@ -1,5 +1,23 @@
+//
+//  MIDIMappingEditorView.swift
+//  10bandEQ_test
+//
+//  改修版: 接続されたMIDIコントローラー名の表示と、KORG nanoKONTROL接続時にプリセットを適用
+//
+
 import SwiftUI
 import CoreMIDI
+
+// CoreMIDIのMIDIEndpointRefに対して、デバイス名を取得する拡張を追加
+extension MIDIEndpointRef {
+    func getName() -> String? {
+        var param: Unmanaged<CFString>?
+        if MIDIObjectGetStringProperty(self, kMIDIPropertyName, &param) == noErr {
+            return param?.takeRetainedValue() as String?
+        }
+        return nil
+    }
+}
 
 /// MIDI マッピングの一覧を表形式で表示し、各行をタップすると詳細編集画面へ遷移するビュー
 struct MIDIMappingEditorView: View {
@@ -23,46 +41,80 @@ struct MIDIMappingEditorView: View {
         MIDIGetNumberOfSources() > 0
     }
     
+    /// 最初の接続MIDIソースからデバイス名を取得
+    var midiControllerName: String? {
+        guard midiConnected else { return nil }
+        let source = MIDIGetSource(0)
+        return source.getName() // ここを修正
+    }
+
+
+    
+    /// KORG nanoKONTROL用のプリセットマッピング（必要に応じて調整してください）
+    var korgPresetMappings: [MIDIMapping] {
+        return [
+            MIDIMapping(parameterName: "EQ 32Hz", midiCC: 10),
+            MIDIMapping(parameterName: "EQ 64Hz", midiCC: 11),
+            MIDIMapping(parameterName: "GAIN",    midiCC: 12)
+            // 他のパラメーターも必要に応じて追加
+        ]
+    }
+    
     var body: some View {
         NavigationView {
-            if !midiConnected {
-                // MIDI コントローラーが接続されていない場合の表示
-                VStack {
-                    Text("MIDI コントローラーが接続されていません")
-                        .foregroundColor(.red)
+            VStack {
+                // 接続されたMIDIコントローラー名の表示
+                if let controllerName = midiControllerName {
+                    Text("接続されたMIDIコントローラー: \(controllerName)")
                         .font(.headline)
-                    Spacer()
+                        .padding(.top)
                 }
-                .padding()
-                .navigationTitle("MIDI マッピング設定")
-            } else {
-                // MIDI コントローラーが接続されている場合は、マッピング一覧を表示
-                List {
-                    Section(header: Text("マッピング済み")) {
-                        ForEach($mappings) { $mapping in
-                            NavigationLink(destination: MIDIMappingDetailEditor(mapping: $mapping, availableCCNumbers: availableCCNumbers)) {
-                                HStack {
-                                    Text(mapping.parameterName)
-                                    Spacer()
-                                    if mapping.midiCC >= 0 {
-                                        Text("CC \(mapping.midiCC)")
-                                            .foregroundColor(.blue)
-                                    } else {
-                                        Text("未割当")
-                                            .foregroundColor(.gray)
+                
+                if !midiConnected {
+                    // MIDI コントローラーが接続されていない場合の表示
+                    VStack {
+                        Text("MIDI コントローラーが接続されていません")
+                            .foregroundColor(.red)
+                            .font(.headline)
+                        Spacer()
+                    }
+                    .padding()
+                } else {
+                    // MIDI コントローラーが接続されている場合は、マッピング一覧を表示
+                    List {
+                        Section(header: Text("マッピング済み")) {
+                            ForEach($mappings) { $mapping in
+                                NavigationLink(destination: MIDIMappingDetailEditor(mapping: $mapping, availableCCNumbers: availableCCNumbers)) {
+                                    HStack {
+                                        Text(mapping.parameterName)
+                                        Spacer()
+                                        if mapping.midiCC >= 0 {
+                                            Text("CC \(mapping.midiCC)")
+                                                .foregroundColor(.blue)
+                                        } else {
+                                            Text("未割当")
+                                                .foregroundColor(.gray)
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                    Section(header: Text("空いている CC 番号")) {
-                        ForEach(availableCCNumbers, id: \.self) { cc in
-                            Text("CC \(cc)")
+                        Section(header: Text("空いている CC 番号")) {
+                            ForEach(availableCCNumbers, id: \.self) { cc in
+                                Text("CC \(cc)")
+                            }
                         }
                     }
                 }
-
-                .navigationTitle("MIDI マッピング設定")
+            }
+            .navigationTitle("MIDI マッピング設定")
+            .onAppear {
+                // KORG nanoKONTROLが接続されている場合、プリセットマッピングを自動適用
+                if let controllerName = midiControllerName, controllerName == "KORG nanoKONTROL" {
+                    // ※ここでは簡単のためプリセットに置き換えていますが、
+                    // ユーザーの変更を残す場合は条件やタイミングを調整してください。
+                    mappings = korgPresetMappings
+                }
             }
         }
     }
