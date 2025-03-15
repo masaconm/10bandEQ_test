@@ -1,5 +1,3 @@
-//MIDIMappingSettingsView.swift
-
 import SwiftUI
 import CoreMIDI
 import Combine
@@ -22,9 +20,8 @@ extension MIDIEndpointRef {
     }
 }
 
-
 // MARK: - MIDI Message Publisher (サンプル実装)
-// 実際はMIDIManagerからMIDIメッセージを流すように実装してください
+// 実際はMIDIManagerからMIDIメッセージを流すように実装
 class MIDIMessagePublisher: ObservableObject {
     static let shared = MIDIMessagePublisher()
     let subject = PassthroughSubject<[UInt8], Never>()
@@ -56,9 +53,14 @@ struct MIDIMappingSettingsView: View {
         "GAIN"
     ]
     
-    // 編集用状態（直接入力編集用アラート）
+    // 編集用状態：現在編集中のMapping
     @State private var editingMapping: MIDIMapping? = nil
-    @State private var newCCString: String = ""
+    // ユーザーがドロップダウンで選択した候補の CC 番号
+    @State private var candidateNewCC: Int? = nil
+    // ドロップダウンリスト（confirmationDialog）の表示状態
+    @State private var showEditOptions: Bool = false
+    // 設定変更確認用アラートの表示状態
+    @State private var showConfirmAlert: Bool = false
     
     // 接続中のMIDIコントローラー名を取得（フィルタ付き）
     var connectedControllers: [String] {
@@ -79,7 +81,7 @@ struct MIDIMappingSettingsView: View {
         return true
     }
     
-    // 現在「手動割当」または「MIDI割当」で割当待ち中の項目のID
+    // 現在「手動割当」または「MIDI割当」で割当待ち中の項目のID（従来の実装から残してあります）
     @State private var waitingMappingID: UUID? = nil
     // MIDI操作による割当モードの状態
     @State private var isAssignModeActive: Bool = false
@@ -93,6 +95,16 @@ struct MIDIMappingSettingsView: View {
     // 0～127 の中で、他で使われていない番号一覧（UI表示用）
     var availableCCNumbers: [Int] {
         (0...127).filter { !assignedCCNumbers.contains($0) }
+    }
+    
+    // 対象の mapping の CC 番号と、空いている番号を合わせた選択肢リストを作成
+    // ※ 編集対象の mapping が既に割当済みの場合、その値も含める
+    func pickerOptions(for mapping: MIDIMapping) -> [Int] {
+        var options = availableCCNumbers
+        if mapping.midiCC != -1 && !options.contains(mapping.midiCC) {
+            options.append(mapping.midiCC)
+        }
+        return options.sorted()
     }
     
     var body: some View {
@@ -114,52 +126,66 @@ struct MIDIMappingSettingsView: View {
                         .padding()
                 }
                 
+                // カラムラベルヘッダー
+                HStack {
+                    Text("Name")
+                        .fontWeight(.bold)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text("CC/Note")
+                        .fontWeight(.bold)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                    Text("Status")
+                        .fontWeight(.bold)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                    Text("Edit CC/Note")
+                        .fontWeight(.bold)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .padding([.leading, .trailing, .top])
+                
                 List {
-                    // マッピング項目の一覧
-                    Section(header: Text("マッピング")) {
+                    Section {
                         ForEach($mappings) { $mapping in
                             HStack {
+                                // 1カラム目：パラメーター名
                                 Text(mapping.parameterName)
-                                Spacer()
-                                if mapping.midiCC >= 0 {
-                                    Text("CC \(mapping.midiCC) (割り当て中)")
-                                        .foregroundColor(.blue)
-                                    Button("解除") {
-                                        if let index = mappings.firstIndex(where: { $0.id == mapping.id }) {
-                                            mappings[index].midiCC = -1
-                                        }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                
+                                // 2カラム目：現在の CC/Note 表示
+                                Group {
+                                    if mapping.midiCC >= 0 {
+                                        Text("CC \(mapping.midiCC)")
+                                    } else {
+                                        Text("未割当")
                                     }
-                                    .buttonStyle(BorderlessButtonStyle())
-                                } else {
-                                    Text("未割当")
-                                        .foregroundColor(.gray)
-                                    // 手動割当ボタン
-                                    Button("手動割当") {
-                                        waitingMappingID = mapping.id
-                                    }
-                                    .buttonStyle(BorderlessButtonStyle())
-                                    // MIDI割当ボタン
-                                    Button("MIDI割当") {
-                                        waitingMappingID = mapping.id
-                                        isAssignModeActive = true
-                                        startListeningForMIDI()
-                                    }
-                                    .buttonStyle(BorderlessButtonStyle())
                                 }
-                            }
-                            .contentShape(Rectangle())
-                            // 割当待ち中の項目は背景色でハイライト
-                            .background((waitingMappingID == mapping.id) ? Color.yellow.opacity(0.3) : Color.clear)
-                            .onTapGesture {
-                                // タップで直接編集用のアラートを表示（任意実装）
-                                editingMapping = mapping
-                                newCCString = mapping.midiCC >= 0 ? "\(mapping.midiCC)" : ""
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                
+                                // 3カラム目：Status（割当済みなら On、未割当なら Off）
+                                Group {
+                                    if mapping.midiCC >= 0 {
+                                        Text("On")
+                                            .foregroundColor(.blue)
+                                    } else {
+                                        Text("Off")
+                                            .foregroundColor(.gray)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                
+                                // 4カラム目：Edit ボタン（ドロップダウンリストを表示）
+                                Button("Edit") {
+                                    editingMapping = mapping
+                                    showEditOptions = true
+                                }
+                                .frame(maxWidth: .infinity, alignment: .trailing)
                             }
                         }
                         .onMove(perform: moveMapping)
                     }
                     
-                    // 手動割当用：空きのあるCC番号一覧（常時表示）
+                    // 従来の手動割当用セクションは不要：削除
+                    /*
                     if !availableCCNumbers.isEmpty {
                         Section(header: Text("空きのあるCCノート番号（手動選択）")) {
                             ForEach(availableCCNumbers, id: \.self) { cc in
@@ -173,6 +199,7 @@ struct MIDIMappingSettingsView: View {
                             }
                         }
                     }
+                    */
                     
                     // MIDI操作による割当モードの状態表示と制御
                     Section(header: Text("MIDI操作による割当モード")) {
@@ -191,20 +218,46 @@ struct MIDIMappingSettingsView: View {
                     }
                 }
                 .navigationTitle("MIDI Mapping Settings")
-                .alert(item: $editingMapping) { mapping in
-                    Alert(
-                        title: Text("Change MIDI CC for \(mapping.parameterName)"),
-                        message: Text("Current value: \(newCCString)\n(Enter new value in a custom UI)"),
-                        primaryButton: .default(Text("OK"), action: {
-                            if let newCC = Int(newCCString),
-                               newCC >= 0, newCC <= 127,
-                               let index = mappings.firstIndex(where: { $0.id == mapping.id }) {
-                                mappings[index].midiCC = newCC
+                // 編集用：ドロップダウンリスト（confirmationDialog）を表示
+                .confirmationDialog("Select CC/Note", isPresented: $showEditOptions, titleVisibility: .visible) {
+                    // 「未割当」選択肢を常に表示
+                    Button("未割当") {
+                        candidateNewCC = -1
+                        showConfirmAlert = true
+                    }
+                    // 編集対象が存在すれば、利用可能なCC番号を選択肢として表示
+                    if let editingMapping = editingMapping {
+                        ForEach(pickerOptions(for: editingMapping), id: \.self) { cc in
+                            Button("CC \(cc)") {
+                                candidateNewCC = cc
+                                showConfirmAlert = true
                             }
-                        }),
-                        secondaryButton: .cancel()
-                    )
+                        }
+                    }
+                    Button("キャンセル", role: .cancel) { }
                 }
+                // 設定変更確認のアラート
+                .alert("Confirm change", isPresented: $showConfirmAlert, actions: {
+                    Button("OK") {
+                        if let mapping = editingMapping,
+                           let newCC = candidateNewCC,
+                           let index = mappings.firstIndex(where: { $0.id == mapping.id }) {
+                            mappings[index].midiCC = newCC
+                        }
+                        // リセット
+                        editingMapping = nil
+                        candidateNewCC = nil
+                    }
+                    Button("Cancel", role: .cancel) {
+                        // キャンセル時もリセット
+                        editingMapping = nil
+                        candidateNewCC = nil
+                    }
+                }, message: {
+                    if let mapping = editingMapping, let newCC = candidateNewCC {
+                        Text("Change \(mapping.parameterName)'s CC from \(mapping.midiCC >= 0 ? "CC \(mapping.midiCC)" : "未割当") to \(newCC == -1 ? "未割当" : "CC \(newCC)")?")
+                    }
+                })
             }
             .onAppear {
                 // 期待されるパラメーターが不足していれば追加
