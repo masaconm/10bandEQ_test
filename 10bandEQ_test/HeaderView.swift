@@ -2,33 +2,39 @@
 
 import SwiftUI
 
-/// HeaderView: Displays the logo and a left‐aligned Settings button.
-/// (Language switching is handled in SettingsView.)
 struct HeaderView: View {
     // Settings ボタンタップ時のアクション
     let settingsAction: () -> Void
 
     var body: some View {
         GeometryReader { geo in
-            HStack {
-                Image("logo")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 40, height: 40)
-                    .padding(.leading, 10)
-                // Settings ボタンをロゴのすぐ右側に配置
-                Button("Settings") {
-                    settingsAction()
+            ZStack(alignment: .topTrailing) {
+                // 左側にロゴを表示
+                HStack {
+                    Image("logo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 40, height: 40)
+                        .padding(.leading, 10)
+                    Spacer()
                 }
-                .frame(width: 120, height: 30)
-                .background(Color.white)
-                .cornerRadius(5)
-                .padding(.leading, 10)
-                Spacer()
+                // 右上に歯車アイコンの Settings ボタンを配置
+                Button(action: settingsAction) {
+                    Image(systemName: "gearshape.fill")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 40, height: 40)
+                        .foregroundColor(.white)
+                        .padding(.trailing, 20)
+                        // 安全領域を考慮して上部に余白を追加
+                        .padding(.top, geo.safeAreaInsets.top + 20)
+                }
             }
+            .frame(width: geo.size.width, height: geo.size.height)
         }
         .frame(height: 60)
         .background(Color.gray)
+        // 上部の安全領域を無視して背景を伸ばす場合
+        .ignoresSafeArea(edges: .top)
     }
 }
-

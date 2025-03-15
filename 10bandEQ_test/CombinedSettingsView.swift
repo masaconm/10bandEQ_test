@@ -1,3 +1,4 @@
+//CombinedSettingsView.swift
 
 import SwiftUI
 
@@ -13,13 +14,12 @@ struct CombinedSettingsView: View {
     @State private var selectedTab: SettingsTab = .audio
     @Environment(\.presentationMode) var presentationMode
     
-    // MIDIMappingSettingsView 用の ViewModel
+    // MIDIMappingEditorView 用の ViewModel
     @StateObject private var midiMappingVM = MIDIMappingViewModel()
     
     var body: some View {
         NavigationView {
             VStack {
-                // タブ切り替え用の SegmentedPicker
                 Picker("Select Tab", selection: $selectedTab) {
                     ForEach(SettingsTab.allCases) { tab in
                         Text(tab.rawValue).tag(tab)
@@ -28,12 +28,12 @@ struct CombinedSettingsView: View {
                 .pickerStyle(SegmentedPickerStyle())
                 .padding()
                 
-                // 選択されたタブに応じた設定画面を表示
                 Group {
                     switch selectedTab {
                     case .audio:
                         AudioInterfaceSettingsView()
                     case .midi:
+                        // MIDIMappingEditorView の内容をそのまま表示
                         MIDIMappingSettingsView(mappings: $midiMappingVM.mappings)
                     case .language:
                         LanguageSettingsView()
@@ -44,8 +44,10 @@ struct CombinedSettingsView: View {
                 Spacer()
             }
             .navigationTitle("Settings")
-            .navigationBarItems(trailing: Button("Close") {
+            .navigationBarItems(trailing: Button {
                 presentationMode.wrappedValue.dismiss()
+            } label: {
+                Image(systemName: "xmark")
             })
         }
     }

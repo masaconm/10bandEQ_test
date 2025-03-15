@@ -56,10 +56,11 @@ class MIDIManager {
         var packet = packets.packet
         for _ in 0..<packets.numPackets {
             var midiBytes: [UInt8] = []
-            // タプルを UnsafeRawPointer 経由で UInt8 配列として読み出す
-            let dataPtr = UnsafeRawPointer(&packet.data).assumingMemoryBound(to: UInt8.self)
-            for i in 0..<Int(packet.length) {
-                midiBytes.append(dataPtr[i])
+            // withUnsafeBytes を使って packet.data の安全なアクセスを行う
+            withUnsafeBytes(of: &packet.data) { buffer in
+                for i in 0..<Int(packet.length) {
+                    midiBytes.append(buffer[i])
+                }
             }
             // 受信した MIDI メッセージがあれば、設定されたハンドラを呼び出す
             midiManagerInstance.midiMessageHandler?(midiBytes)
