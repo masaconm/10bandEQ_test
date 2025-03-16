@@ -87,7 +87,7 @@ struct MIDIMappingSettingsView: View {
             VStack(alignment: .leading) {
                 if !connectedControllers.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("接続中のMIDIコントローラー:")
+                        Text("Connected MIDI Controller:")
                             .font(.headline)
                         ForEach(connectedControllers, id: \.self) { controller in
                             Text(controller)
@@ -95,7 +95,7 @@ struct MIDIMappingSettingsView: View {
                     }
                     .padding()
                 } else {
-                    Text("MIDIコントローラーが接続されていません")
+                    Text("No MIDI Controller Connected")
                         .foregroundColor(.red)
                         .padding()
                 }
@@ -127,7 +127,7 @@ struct MIDIMappingSettingsView: View {
                                     if mapping.midiCC >= 0 {
                                         Text("CC \(mapping.midiCC)")
                                     } else {
-                                        Text("未割当")
+                                        Text("none")
                                     }
                                 }
                                 .frame(maxWidth: .infinity, alignment: .center)
@@ -153,9 +153,9 @@ struct MIDIMappingSettingsView: View {
                         .onMove(perform: moveMapping)
                     }
                 }
-                .navigationTitle("MIDI マッピング設定")
+                .navigationTitle("MIDI Mapping")
                 .confirmationDialog("Select CC/Note", isPresented: $showEditOptions, titleVisibility: .visible) {
-                    Button("未割当") {
+                    Button("none") {
                         candidateNewCC = -1
                         showConfirmAlert = true
                     }
@@ -167,7 +167,7 @@ struct MIDIMappingSettingsView: View {
                             }
                         }
                     }
-                    Button("キャンセル", role: .cancel) { }
+                    Button("Cancel", role: .cancel) { }
                 }
                 .alert("Confirm change", isPresented: $showConfirmAlert, actions: {
                     Button("OK") {
@@ -185,7 +185,7 @@ struct MIDIMappingSettingsView: View {
                     }
                 }, message: {
                     if let mapping = editingMapping, let newCC = candidateNewCC {
-                        Text("Change \(mapping.parameterName)'s CC from \(mapping.midiCC >= 0 ? "CC \(mapping.midiCC)" : "未割当") to \(newCC == -1 ? "未割当" : "CC \(newCC)")?")
+                        Text("Change \(mapping.parameterName)'s CC from \(mapping.midiCC >= 0 ? "CC \(mapping.midiCC)" : "none") to \(newCC == -1 ? "none" : "CC \(newCC)")?")
                     }
                 })
             }

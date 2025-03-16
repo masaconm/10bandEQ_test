@@ -2,6 +2,17 @@ import SwiftUI
 import Combine
 import CoreMIDI
 
+// MIDIEndpointRef の拡張を追加
+extension MIDIEndpointRef {
+    func getName() -> String? {
+        var param: Unmanaged<CFString>?
+        if MIDIObjectGetStringProperty(self, kMIDIPropertyName, &param) == noErr {
+            return param?.takeRetainedValue() as String?
+        }
+        return nil
+    }
+}
+
 class MIDIMappingViewModel: ObservableObject {
     @Published var mappings: [MIDIMapping] = []
     
@@ -49,13 +60,12 @@ class MIDIMappingViewModel: ObservableObject {
     func updateMappingsBasedOnMIDIConnection() {
         if MIDIGetNumberOfSources() > 0 {
             let source = MIDIGetSource(0)
-            // すでに他のファイルで getName() 拡張が定義されている前提
             if let controllerName = source.getName(), controllerName.contains("KORG nanoKONTROL") {
                 // もし EQ 32Hz の mapping が未割当 (-1) なら、preset を適用
                 if let eq32Mapping = mappings.first(where: { $0.parameterName == "EQ 32Hz" }),
                    eq32Mapping.midiCC == -1 {
                     
-                    // preset 適用：ここでは例として 3 つの mapping を設定
+                    // preset 適用：例として 3 つの mapping を設定
                     let presetMappings: [MIDIMapping] = [
                         MIDIMapping(parameterName: "EQ 32Hz", midiCC: 10),
                         MIDIMapping(parameterName: "EQ 64Hz", midiCC: 11),
