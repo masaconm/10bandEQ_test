@@ -1,3 +1,5 @@
+//AudioEqualizerContentView.swift
+
 import SwiftUI
 import AVFoundation
 
@@ -16,8 +18,9 @@ struct AudioEqualizerContentView: View {
         VStack(spacing: 0) {
             // ヘッダー：Settings ボタン（例）※必要に応じて変更
             HeaderView(settingsAction: {
-                activeSheet = .settings
+                activeSheet = .settings  // ここを .settings に変更
             })
+
             .frame(height: 60)
             
             // 現在再生中の音声ファイル情報表示
@@ -176,7 +179,7 @@ struct AudioEqualizerContentView: View {
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
             case .settings:
-                SettingsView()
+                CombinedSettingsView()  // ここを CombinedSettingsView() に変更
             case .savePreset:
                 PresetSaveView(viewModel: viewModel)
             case .loadPreset:
@@ -194,6 +197,7 @@ struct AudioEqualizerContentView: View {
                 MIDIMappingSettingsView(mappings: $viewModel.midiMappings)
             }
         }
+
     }
 }
 

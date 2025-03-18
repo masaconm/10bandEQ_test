@@ -1,8 +1,7 @@
+//CombinedSettingsView.swift
+
 import SwiftUI
 
-/// CombinedSettingsView: A unified settings screen with a left sidebar menu.
-/// Uses a List (with onTapGesture) for the sidebar so that tapping a row immediately
-/// switches the detail content.
 struct CombinedSettingsView: View {
     enum SettingsTab: String, CaseIterable, Identifiable {
         case audio = "Audio Settings"
@@ -15,45 +14,42 @@ struct CombinedSettingsView: View {
     @State private var selectedTab: SettingsTab = .audio
     @Environment(\.presentationMode) var presentationMode
     
+    // MIDIMappingEditorView 用の ViewModel
+    @StateObject private var midiMappingVM = MIDIMappingViewModel()
+    
     var body: some View {
         NavigationView {
-            // Sidebar
-            List {
-                ForEach(SettingsTab.allCases) { tab in
-                    HStack {
-                        Text(tab.rawValue)
-                        Spacer()
+            VStack {
+                Picker("Select Tab", selection: $selectedTab) {
+                    ForEach(SettingsTab.allCases) { tab in
+                        Text(tab.rawValue).tag(tab)
                     }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        selectedTab = tab
-                    }
-                    .background(selectedTab == tab ? Color(UIColor.darkGray) : Color.clear)
-
                 }
+                .pickerStyle(SegmentedPickerStyle())
+                .padding()
+                
+                Group {
+                    switch selectedTab {
+                    case .audio:
+                        AudioInterfaceSettingsView()
+                    case .midi:
+                        // MIDIMappingEditorView の内容をそのまま表示
+                        MIDIMappingSettingsView(mappings: $midiMappingVM.mappings)
+                    case .language:
+                        LanguageSettingsView()
+                    }
+                }
+                .padding()
+                
+                Spacer()
             }
-            .listStyle(SidebarListStyle())
-            .frame(width: 200)
-            .background(Color(UIColor.systemGray6))
             .navigationTitle("Settings")
-            .navigationBarItems(trailing: Button("Close") {
+            .navigationBarItems(trailing: Button {
                 presentationMode.wrappedValue.dismiss()
+            } label: {
+                Image(systemName: "xmark")
             })
-            
-            // Detail Area
-            Group {
-                switch selectedTab {
-                case .audio:
-                    AudioInterfaceSettingsView()
-                case .midi:
-                    MIDIMappingSettingsView(mappings: .constant([])) // Binding を適宜設定
-                case .language:
-                    LanguageSettingsView()
-                }
-            }
-            .navigationTitle(selectedTab.rawValue)
         }
-        .navigationViewStyle(StackNavigationViewStyle())
     }
 }
 
@@ -62,4 +58,3 @@ struct CombinedSettingsView_Previews: PreviewProvider {
         CombinedSettingsView()
     }
 }
-

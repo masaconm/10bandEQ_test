@@ -1,93 +1,195 @@
 import SwiftUI
 import CoreMIDI
+import Combine
+
+extension MIDIEndpointRef {
+    func getControllerFullName() -> String? {
+        var manufacturerRef: Unmanaged<CFString>?
+        var displayNameRef: Unmanaged<CFString>?
+        let manufacturerStatus = MIDIObjectGetStringProperty(self, kMIDIPropertyManufacturer, &manufacturerRef)
+        let displayNameStatus = MIDIObjectGetStringProperty(self, kMIDIPropertyDisplayName, &displayNameRef)
+        
+        if manufacturerStatus == noErr, displayNameStatus == noErr,
+           let manufacturer = manufacturerRef?.takeUnretainedValue() as String?,
+           let displayName = displayNameRef?.takeUnretainedValue() as String? {
+            return "\(manufacturer) \(displayName)"
+        }
+        return nil
+    }
+}
+
+class MIDIMessagePublisher: ObservableObject {
+    static let shared = MIDIMessagePublisher()
+    let subject = PassthroughSubject<[UInt8], Never>()
+    var publisher: AnyPublisher<[UInt8], Never> {
+        subject.eraseToAnyPublisher()
+    }
+}
+
+func extractCCFrom(_ message: [UInt8]) -> Int? {
+    guard message.count >= 3 else { return nil }
+    if message[0] >= 0xB0 && message[0] <= 0xBF {
+        return Int(message[1])
+    }
+    return nil
+}
 
 struct MIDIMappingSettingsView: View {
-    // AudioEngineViewModel の midiMappings を Binding で受け取る
     @Binding var mappings: [MIDIMapping]
     @Environment(\.presentationMode) var presentationMode
 
-    // 期待するパラメーター名（10バンド EQ ＋ GAIN）
     let expectedMappingNames: [String] = [
         "EQ 32Hz", "EQ 64Hz", "EQ 125Hz", "EQ 250Hz", "EQ 500Hz",
         "EQ 1kHz", "EQ 2kHz", "EQ 4kHz", "EQ 8kHz", "EQ 16kHz",
         "GAIN"
     ]
     
-    // 編集用状態（アラート表示用）
     @State private var editingMapping: MIDIMapping? = nil
-    @State private var newCCString: String = ""
+    @State private var candidateNewCC: Int? = nil
+    @State private var showEditOptions: Bool = false
+    @State private var showConfirmAlert: Bool = false
+    
+    var connectedControllers: [String] {
+        var names: [String] = []
+        let sourceCount = MIDIGetNumberOfSources()
+        for i in 0..<sourceCount {
+            let src = MIDIGetSource(i)
+            if let name = src.getControllerFullName(), isValidControllerName(name) {
+                names.append(name)
+            }
+        }
+        return names
+    }
+    
+    func isValidControllerName(_ name: String) -> Bool {
+        if name == "M4" { return false }
+        return true
+    }
+    
+    var assignedCCNumbers: Set<Int> {
+        Set(mappings.compactMap { $0.midiCC >= 0 ? $0.midiCC : nil })
+    }
+    
+    var availableCCNumbers: [Int] {
+        (0...127).filter { !assignedCCNumbers.contains($0) }
+    }
+    
+    func pickerOptions(for mapping: MIDIMapping) -> [Int] {
+        var options = availableCCNumbers
+        if mapping.midiCC != -1 && !options.contains(mapping.midiCC) {
+            options.append(mapping.midiCC)
+        }
+        return options.sorted()
+    }
     
     var body: some View {
         NavigationView {
-            List {
-                ForEach($mappings) { $mapping in
-                    HStack {
-                        // パラメーター名表示
-                        Text(mapping.parameterName)
-                        Spacer()
-                        // 割り当てられている場合は CC 番号、そうでなければ「未割当」
-                        if mapping.midiCC >= 0 {
-                            Text("CC \(mapping.midiCC)")
-                                .foregroundColor(.blue)
-                        } else {
-                            Text("未割当")
-                                .foregroundColor(.gray)
+            VStack(alignment: .leading) {
+                if !connectedControllers.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("接続中のMIDIコントローラー:")
+                            .font(.headline)
+                        ForEach(connectedControllers, id: \.self) { controller in
+                            Text(controller)
                         }
-                        // 解除ボタン（タップで未割当にする）
-                        Button(action: {
-                            if let index = mappings.firstIndex(where: { $0.id == mapping.id }) {
-                                mappings[index].midiCC = -1
+                    }
+                    .padding()
+                } else {
+                    Text("MIDIコントローラーが接続されていません")
+                        .foregroundColor(.red)
+                        .padding()
+                }
+                
+                HStack {
+                    Text("Name")
+                        .fontWeight(.bold)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text("CC/Note")
+                        .fontWeight(.bold)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                    Text("Status")
+                        .fontWeight(.bold)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                    Text("Edit CC/Note")
+                        .fontWeight(.bold)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .padding([.leading, .trailing, .top])
+                
+                List {
+                    Section {
+                        ForEach($mappings) { $mapping in
+                            HStack {
+                                Text(mapping.parameterName)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                
+                                Group {
+                                    if mapping.midiCC >= 0 {
+                                        Text("CC \(mapping.midiCC)")
+                                    } else {
+                                        Text("未割当")
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                
+                                Group {
+                                    if mapping.midiCC >= 0 {
+                                        Text("On")
+                                            .foregroundColor(.blue)
+                                    } else {
+                                        Text("Off")
+                                            .foregroundColor(.gray)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                
+                                Button("Edit") {
+                                    editingMapping = mapping
+                                    showEditOptions = true
+                                }
+                                .frame(maxWidth: .infinity, alignment: .trailing)
                             }
-                        }) {
-                            Text("解除")
-                                .foregroundColor(.red)
+                        }
+                        .onMove(perform: moveMapping)
+                    }
+                }
+                .navigationTitle("MIDI マッピング設定")
+                .confirmationDialog("Select CC/Note", isPresented: $showEditOptions, titleVisibility: .visible) {
+                    Button("未割当") {
+                        candidateNewCC = -1
+                        showConfirmAlert = true
+                    }
+                    if let editingMapping = editingMapping {
+                        ForEach(pickerOptions(for: editingMapping), id: \.self) { cc in
+                            Button("CC \(cc)") {
+                                candidateNewCC = cc
+                                showConfirmAlert = true
+                            }
                         }
                     }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        // タップでアラート表示用の編集対象に設定
-                        editingMapping = mapping
-                        newCCString = mapping.midiCC >= 0 ? "\(mapping.midiCC)" : ""
-                    }
+                    Button("キャンセル", role: .cancel) { }
                 }
-                .onMove(perform: moveMapping)
-            }
-            .navigationTitle("MIDI Mapping Settings")
-            .navigationBarItems(
-                leading: EditButton(),
-                trailing: Button("Done") {
-                    presentationMode.wrappedValue.dismiss()
-                }
-            )
-            // 不足しているパラメーターがあれば onAppear で追加
-            .onAppear {
-                for expected in expectedMappingNames {
-                    if !mappings.contains(where: { $0.parameterName == expected }) {
-                        mappings.append(MIDIMapping(parameterName: expected, midiCC: -1))
-                    }
-                }
-                // 並び順を期待する順に整える
-                mappings.sort { first, second in
-                    let firstIndex = expectedMappingNames.firstIndex(of: first.parameterName) ?? 0
-                    let secondIndex = expectedMappingNames.firstIndex(of: second.parameterName) ?? 0
-                    return firstIndex < secondIndex
-                }
-            }
-            // 編集用アラート
-            .alert(item: $editingMapping) { mapping in
-                Alert(
-                    title: Text("Change MIDI CC for \(mapping.parameterName)"),
-                    message: Text("Current value: \(newCCString)\n(Enter new value in a custom UI)"),
-                    primaryButton: .default(Text("OK"), action: {
-                        if let newCC = Int(newCCString),
-                           newCC >= 0, newCC <= 127,
+                .alert("Confirm change", isPresented: $showConfirmAlert, actions: {
+                    Button("OK") {
+                        if let mapping = editingMapping,
+                           let newCC = candidateNewCC,
                            let index = mappings.firstIndex(where: { $0.id == mapping.id }) {
                             mappings[index].midiCC = newCC
                         }
-                    }),
-                    secondaryButton: .cancel()
-                )
+                        editingMapping = nil
+                        candidateNewCC = nil
+                    }
+                    Button("Cancel", role: .cancel) {
+                        editingMapping = nil
+                        candidateNewCC = nil
+                    }
+                }, message: {
+                    if let mapping = editingMapping, let newCC = candidateNewCC {
+                        Text("Change \(mapping.parameterName)'s CC from \(mapping.midiCC >= 0 ? "CC \(mapping.midiCC)" : "未割当") to \(newCC == -1 ? "未割当" : "CC \(newCC)")?")
+                    }
+                })
             }
+            // onAppear 内の preset 適用ロジックは不要
         }
     }
     

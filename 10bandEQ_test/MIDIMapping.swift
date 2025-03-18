@@ -3,8 +3,8 @@
 //  10bandEQ_test
 //
 //  Created by 中静暢子 on 2025/03/08.
+//
 
-// MIDIMapping.swift
 import Foundation
 
 struct MIDIMapping: Identifiable, Codable, Equatable, Hashable {
@@ -13,3 +13,4 @@ struct MIDIMapping: Identifiable, Codable, Equatable, Hashable {
     // 未割当の場合は -1 などの値で管理
     var midiCC: Int
 }
+
