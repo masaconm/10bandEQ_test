@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- フルスクリーンモード（iPad でマルチタスクを無効化するため） -->
+	<key>UIStatusBarHidden</key>
+	<true/>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
+
+	<key>UIRequiresFullScreen</key>
+		<true/>
+
+    <key>UIDeviceFamily</key>
+    <array>
+        <integer>2</integer> <!-- iPad のみ対応 -->
+        <integer>1</integer> <!-- Mac (Mac Catalyst) 対応 -->
+    </array>
+
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+
+    <key>UISupportedInterfaceOrientations~mac</key>
+    <array>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+
+
+    <!-- マイク（オーディオ録音）の使用許可 -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>このアプリではオーディオ録音機能を使用します。</string>
+
+    <!-- MIDIデバイス（Bluetooth & USB）の使用許可 -->
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>このアプリでは Bluetooth および USB MIDI コントローラーを使用します。</string>
+
+    <key>NSBluetoothPeripheralUsageDescription</key>
+    <string>このアプリでは外部 MIDI コントローラーとの接続に Bluetooth を使用します。</string>
+
+    <!-- 有線オーディオインターフェース & MIDI コントローラーの使用許可 -->
+    <key>NSUSBUsageDescription</key>
+    <string>このアプリでは USB 経由でのオーディオインターフェースや MIDI コントローラーを使用します。</string>
+
+    <!-- オーディオエフェクト・外部オーディオインターフェースの許可 -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>audio</string>  <!-- バックグラウンドでのオーディオ処理 -->
+        <string>bluetooth-central</string>  <!-- Bluetooth MIDI -->
+        <string>bluetooth-peripheral</string>  <!-- Bluetooth MIDI -->
+        <string>inter-app-audio</string>  <!-- Inter-App Audio -->
+        <string>external-accessory</string>  <!-- USB/MIDI 端末の接続 -->
+    </array>
+
+    <!-- 録音した音声を保存するためのファイルアクセス許可 -->
+    <key>NSDocumentsDirectoryUsageDescription</key>
+    <string>録音したオーディオを保存するためにストレージを使用します。</string>
+
+    <key>NSSupportsPersistentDownloads</key>
+    <true/>
+
+</dict>
+</plist>
+
