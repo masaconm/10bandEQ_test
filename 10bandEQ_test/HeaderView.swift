@@ -14,7 +14,7 @@ struct HeaderView: View {
                     Image("logo")
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .frame(width: 40, height: 40)
+                        .frame(width: 60, height: 60)
                         .padding(.leading, 10)
                     Spacer()
                 }
@@ -33,7 +33,7 @@ struct HeaderView: View {
             .frame(width: geo.size.width, height: geo.size.height)
         }
         .frame(height: 60)
-        .background(Color.gray)
+        .background(Color(hex: "#242529"))
         // 上部の安全領域を無視して背景を伸ばす場合
         .ignoresSafeArea(edges: .top)
     }

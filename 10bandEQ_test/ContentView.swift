@@ -8,14 +8,22 @@
 import SwiftUI
 
 struct ContentView: View {
+    @State private var isRecordingViewPresented = false
+
     var body: some View {
-        AudioEqualizerContentView()
+        ZStack {
+            AudioEqualizerContentView() // 既存のイコライザー画面を維持
+
+        }
+
     }
 }
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
-            .previewInterfaceOrientation(.landscapeLeft) // プレビューを横向きに固定
+            .previewInterfaceOrientation(.landscapeLeft)
     }
 }
+
+

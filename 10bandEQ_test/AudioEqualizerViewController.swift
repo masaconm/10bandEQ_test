@@ -25,15 +25,22 @@ struct SampleBuffer {
 // MARK: - EQPreset
 /// EQ プリセットのデータ構造。ユーザーが設定した EQ の各バンドの値を保持する。
 /// Codable に準拠しているので、JSON での保存／読み込みが可能。
+/// EQPreset に filterType 情報を含める（拡張）
 struct EQPreset: Identifiable, Codable {
     let id: UUID
     var name: String
     var eqValues: [Float]
-    
-    init(name: String, eqValues: [Float]) {
+    var filterTypeRawValues: [Int]?
+
+    init(name: String, eqValues: [Float], filterTypes: [AVAudioUnitEQFilterType]? = nil) {
         self.id = UUID()
         self.name = name
         self.eqValues = eqValues
+        self.filterTypeRawValues = filterTypes?.map { $0.rawValue }
+    }
+
+    var filterTypes: [AVAudioUnitEQFilterType]? {
+        filterTypeRawValues?.compactMap { AVAudioUnitEQFilterType(rawValue: $0) }
     }
 }
 
@@ -151,11 +158,94 @@ class AudioEngineViewModel: ObservableObject {
     @Published var playlistItems: [PlaylistItem] = []
     @Published var currentPlaylistItem: PlaylistItem? = nil
     
+    // MARK: - プリセット適用 + 各バンドのbypass制御
+    func applyPresetWithBypass(_ preset: EQPreset) {
+        eqValues = preset.eqValues
+
+        for (index, value) in preset.eqValues.enumerated() {
+            guard eqNode.bands.indices.contains(index) else { continue }
+            let band = eqNode.bands[index]
+
+            // 値を適用
+            band.gain = value
+
+            // フィルタータイプを適用（あれば）
+            if let types = preset.filterTypes, types.indices.contains(index) {
+                band.filterType = types[index]
+            }
+
+            // バイパス処理：0dBは完全スルー
+            band.bypass = (value == 0)
+        }
+    }
+    // MARK: - 「HI / MID / LOW ボタンを押したときに、それ以外の帯域を完全に切りたい（バイパス or カット）」
+    //プリセットとは別に、それぞれ専用の切り替え関数を用意
+    
+    func applyBandOnly(_ band: String) {
+        for (index, bandNode) in eqNode.bands.enumerated() {
+            bandNode.filterType = .parametric
+
+            // 初期化（バンドを "切る"）
+            bandNode.gain = -40
+            bandNode.bypass = false
+
+            switch band {
+            case "LOW" where index <= 2:
+                bandNode.gain = 6
+                bandNode.filterType = .lowShelf
+            case "MID" where index >= 3 && index <= 6:
+                bandNode.gain = 5
+            case "HI" where index >= 7:
+                bandNode.gain = 6
+                bandNode.filterType = .highShelf
+            default:
+                break
+            }
+
+            // UI側にも反映
+            if eqValues.indices.contains(index) {
+                eqValues[index] = bandNode.gain
+            }
+        }
+    }
+    // MARK: - Default ボタンを追加（すべて0dBに戻し、バイパスOFF）
+    func resetEQToDefault() {
+        for (index, band) in eqNode.bands.enumerated() {
+            band.gain = 0
+            band.bypass = false
+            band.filterType = .parametric
+
+            if eqValues.indices.contains(index) {
+                eqValues[index] = 0
+            }
+        }
+    }
+
+    
     // 組み込みプリセットおよびユーザープリセット（EQ設定）
     @Published var defaultPresets: [EQPreset] = [
-        EQPreset(name: "Flat", eqValues: Array(repeating: 0, count: 10)),
-        EQPreset(name: "Rock", eqValues: [5, 3, 0, -2, -2, 0, 3, 5, 7, 10])
+        EQPreset(
+            name: "Flat",
+            eqValues: Array(repeating: 0, count: 10),
+            filterTypes: Array(repeating: .parametric, count: 10)
+        ),
+        EQPreset(
+            name: "LOW",
+            eqValues: [6, 6, 5, 0, 0, 0, 0, 0, 0, 0],
+            filterTypes: [.lowShelf, .lowShelf, .lowShelf, .parametric, .parametric, .parametric, .parametric, .parametric, .parametric, .parametric]
+        ),
+        EQPreset(
+            name: "MID",
+            eqValues: [0, 0, 0, 4, 5, 5, 4, 0, 0, 0],
+            filterTypes: [.parametric, .parametric, .parametric, .parametric, .parametric, .parametric, .parametric, .parametric, .parametric, .parametric]
+        ),
+        EQPreset(
+            name: "HI",
+            eqValues: [0, 0, 0, 0, 0, 0, 0, 5, 6, 6],
+            filterTypes: [.parametric, .parametric, .parametric, .parametric, .parametric, .parametric, .parametric, .highShelf, .highShelf, .highShelf]
+        )
     ]
+    
     @Published var userPresets: [EQPreset] = []
     
     // MIDIManager のインスタンス（MIDI コントローラー対応用）
@@ -218,6 +308,15 @@ class AudioEngineViewModel: ObservableObject {
                 }
             }
         }
+        
+        // 20250322 録音した音声をPlaylistへ追加
+            NotificationCenter.default.addObserver(forName: .newRecordingFinished, object: nil, queue: .main) { [weak self] notification in
+                guard let self = self else { return }
+                if let url = notification.object as? URL {
+                    print("📥 通知で受け取った録音ファイル: \(url.lastPathComponent)")
+                    self.addAudioFileToPlaylist(url: url)
+                }
+            }
     }
     
     // MARK: - Audio Engine の初期化処理
@@ -258,11 +357,13 @@ class AudioEngineViewModel: ObservableObject {
     // MARK: - EQ 更新処理
     func updateEQ(at index: Int, value: Float) {
         eqValues[index] = value
+
         if eqNode.bands.indices.contains(index) {
             eqNode.bands[index].gain = value
+            eqNode.bands[index].bypass = false // スライダー操作時はバイパス解除！
         }
-        print("EQ band \(index) set to \(value)")
     }
+
     
     // MARK: - レベル更新処理
     func updateLevel(from buffer: AVAudioPCMBuffer) {
@@ -421,11 +522,14 @@ class AudioEngineViewModel: ObservableObject {
     }
     
     // MARK: - EQプリセット管理
+
     func savePreset(with name: String) {
-        let newPreset = EQPreset(name: name, eqValues: eqValues)
+        let filterTypes = eqNode.bands.map { $0.filterType }
+        let newPreset = EQPreset(name: name, eqValues: eqValues, filterTypes: filterTypes)
         userPresets.append(newPreset)
         saveUserPresetsToDefaults()
     }
+
     
     func applyPreset(_ preset: EQPreset) {
         eqValues = preset.eqValues
@@ -508,7 +612,7 @@ struct SmoothWaveformView: View {
             ZStack(alignment: .leading) {
                 // 波形を滑らかな曲線（補間 Path）として描画
                 Path.smoothPath(with: points)
-                    .stroke(Color.blue, lineWidth: 1)
+                    .stroke(Color(hex: "#00FFFF"), lineWidth: 1)
                     .frame(width: waveformWidth, height: containerHeight)
                     .offset(x: offsetX)
             }
@@ -567,7 +671,7 @@ struct LevelMeterViewSwiftUI: View {
                 }
             }
             .frame(maxHeight: .infinity, alignment: .bottom)
-            .border(Color.white)
+            .background(Color.black)
         }
     }
 }
@@ -591,153 +695,73 @@ struct LevelMeterViewSwiftUI: View {
 //    }
 //}
 
-/// つまみ部分：固定サイズの正方形
+// MARK: -つまみ部分：固定サイズの正方形
 struct SliderThumb: View {
-    var thumbSize: CGFloat = 30
-    var thumbColor: Color = .white
+    var thumbWidth: CGFloat = 40
+    var thumbHeight: CGFloat = 20
+    var thumbColor: Color = Color(hex: "#363739")
+
     var body: some View {
-        // 正方形のつまみを表示
-        Rectangle()
-            .fill(thumbColor)
-            .frame(width: thumbSize, height: thumbSize)
-            .shadow(radius: 2)
+        ZStack {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(thumbColor)
+
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(Color(hex: "#1f2022"), lineWidth: 2)
+
+            Rectangle()
+                .fill(Color(hex: "#858585"))
+                .frame(width: thumbWidth * 0.6, height: 2) // ✅ 横線！
+        }
+        .frame(width: thumbWidth, height: thumbHeight)
+        .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
     }
 }
 
-/// カスタム Vertical Slider：つまみとトラックを個別に描画する縦型スライダー
+
+// MARK: - カスタム Vertical Slider：つまみとトラックを個別に描画する縦型スライダー
 struct CustomVerticalSlider: View {
     @Binding var value: Float
     var range: ClosedRange<Float>
-    var thumbSize: CGFloat = 30
+    var thumbWidth: CGFloat = 40          // ✅ 横幅
+    var thumbHeight: CGFloat = 20         // ✅ 高さ
     var trackColor: Color = .gray
     var fillColor: Color = .blue
     var thumbColor: Color = .white
+
     var body: some View {
         GeometryReader { geo in
             let height = geo.size.height
             let width = geo.size.width
-            // 現在の値を 0～1 の割合に変換
             let percentage = CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound))
             let fillHeight = height * percentage
             let thumbY = height * (1 - percentage)
+
             ZStack {
-                SliderTrack(percentage: fillHeight, width: width, trackColor: trackColor, fillColor: fillColor)
-                SliderThumb(thumbSize: thumbSize, thumbColor: thumbColor)
-                    .position(x: width / 2, y: thumbY)
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { gesture in
-                                let clampedY = min(max(gesture.location.y, 0), height)
-                                let newPercentage = 1 - (clampedY / height)
-                                let newValue = range.lowerBound + Float(newPercentage) * (range.upperBound - range.lowerBound)
-                                self.value = newValue
-                            }
-                    )
-            }
-        }
-    }
-}
+                SliderTrack(
+                    percentage: fillHeight,
+                    width: width,
+                    trackColor: trackColor,
+                    fillColor: fillColor
+                )
 
-
-
-// MARK: - EQContainerView
-/// EQContainerView：EQスライダー群、GAINスライダー、レベルメーターを横並びで表示する
-struct EQContainerView: View {
-    let eqBands: [Float]
-    @Binding var eqValues: [Float]
-    var onSliderChanged: (Int, Float) -> Void
-    var level: Float
-    @Binding var gain: Float
-    
-    var body: some View {
-        GeometryReader { geo in
-            let totalWidth = geo.size.width
-            let containerHeight = geo.size.height
-            // スライダー部分の高さ（EQやGAINはこの高さで表示）
-            let sliderHeight = containerHeight * 0.66
-            // ラベル部分の高さ（各スライダーの下部に表示される）
-            let labelHeight = containerHeight * 0.34
-            
-            let eqAreaWidth = totalWidth * 0.6
-            let gainSliderWidth = totalWidth * 0.1
-            let meterWidth = (totalWidth - eqAreaWidth - gainSliderWidth) / 3
-            
-            HStack(spacing: 10) {
-                // EQスライダー群：各バンドのスライダーと、その下に周波数と dB のラベル
-                HStack(alignment: .bottom, spacing: 10) {
-                    ForEach(eqBands.indices, id: \.self) { index in
-                        VStack(spacing: 2) {
-                            CustomVerticalSlider(
-                                value: Binding(
-                                    get: { eqValues[index] },
-                                    set: { newValue in onSliderChanged(index, newValue) }
-                                ),
-                                range: -40...40,
-                                thumbSize: 30,
-                                trackColor: .gray,
-                                fillColor: .blue,
-                                thumbColor: .white
-                            )
-                            .frame(width: 30, height: sliderHeight)
-                            
-                            Text(eqBands[index] >= 1000 ?
-                                 "\(eqBands[index]/1000, specifier: "%.1f") kHz" :
-                                 "\(Int(eqBands[index])) Hz")
-                                .font(.caption)
-                                .foregroundColor(.white)
-                                .frame(height: labelHeight / 6)
-                            
-                            Text("\(eqValues[index], specifier: "%.1f") dB")
-                                .font(.caption2)
-                                .foregroundColor(.white)
-                                .frame(height: labelHeight / 4)
+                SliderThumb(
+                    thumbWidth: thumbWidth,
+                    thumbHeight: thumbHeight,
+                    thumbColor: thumbColor
+                )
+                .position(x: width / 2, y: thumbY)
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { gesture in
+                            let clampedY = min(max(gesture.location.y, 0), height)
+                            let newPercentage = 1 - (clampedY / height)
+                            let newValue = range.lowerBound + Float(newPercentage) * (range.upperBound - range.lowerBound)
+                            self.value = newValue
                         }
-                        .frame(height: containerHeight)
-                    }
-                }
-                .frame(width: eqAreaWidth)
-                
-                // GAINスライダー：上部はスライダー、下部にラベルと数値
-                VStack(spacing: 2) {
-                    CustomVerticalSlider(
-                        value: $gain,
-                        range: 0...2,
-                        thumbSize: 30,
-                        trackColor: .gray,
-                        fillColor: .blue,
-                        thumbColor: .white
-                    )
-                    .frame(width: 30, height: sliderHeight)
-                    
-                    Text("Gain")
-                        .font(.caption)
-                        .foregroundColor(.white)
-                        .frame(height: labelHeight / 6)
-                    Text("\(gain, specifier: "%.2f")")
-                        .font(.caption2)
-                        .foregroundColor(.white)
-                        .frame(height: labelHeight / 4)
-                }
-                .frame(width: gainSliderWidth)
-                
-                // レベルメーター：バー部分と下部にラベルを配置
-                VStack(spacing: 2) {
-                    LevelMeterViewSwiftUI(level: level)
-                        .frame(height: sliderHeight)
-                    Text("Current Loudness")
-                        .font(.caption)
-                        .foregroundColor(.white)
-                        .frame(height: labelHeight / 6)
-                    Text(String(format: "%.2f dB", level))
-                        .font(.caption2)
-                        .foregroundColor(.white)
-                        .frame(height: labelHeight / 4)
-                }
-                .frame(width: meterWidth)
+                )
             }
-            .padding(.horizontal, 10)
         }
-        .background(Color.black.opacity(0.2))
     }
 }
 
@@ -748,139 +772,61 @@ struct PresetSaveView: View {
     @Environment(\.presentationMode) var presentationMode
     @ObservedObject var viewModel: AudioEngineViewModel
     @State private var presetName: String = ""
+    @State private var filterTypes: [AVAudioUnitEQFilterType] = Array(repeating: .parametric, count: 10)
+    
     var body: some View {
         NavigationView {
             Form {
                 Section(header: Text("Preset Name")) {
                     TextField("Enter name", text: $presetName)
                 }
-                Button("Save") {
-                    if !presetName.isEmpty {
-                        viewModel.savePreset(with: presetName)
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                }
-            }
-            .navigationTitle("Save Preset")
-            .navigationBarItems(trailing: Button("Cancel") {
-                presentationMode.wrappedValue.dismiss()
-            })
-        }
-    }
-}
-
-// MARK: - PresetLoadView
-/// ユーザーが保存した EQ プリセットを読み込むための画面
-struct PresetLoadView: View {
-    @Environment(\.presentationMode) var presentationMode
-    @ObservedObject var viewModel: AudioEngineViewModel
-    
-    var body: some View {
-        NavigationView {
-            List {
-                Section(header: Text("Default Presets")) {
-                    ForEach(viewModel.defaultPresets) { preset in
-                        Button(action: {
-                            viewModel.applyPreset(preset)
-                            presentationMode.wrappedValue.dismiss()
-                        }) {
-                            Text(preset.name)
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                }
-                Section(header: Text("User Presets")) {
-                    ForEach(viewModel.userPresets) { preset in
+                
+                Section(header: Text("Filter Type (per band)")) {
+                    ForEach(0..<viewModel.eqBandsFrequencies.count, id: \.self) { index in
                         HStack {
-                            // 左側：タップでプリセット適用
-                            Button(action: {
-                                viewModel.applyPreset(preset)
-                                presentationMode.wrappedValue.dismiss()
-                            }) {
-                                Text(preset.name)
-                                    .foregroundColor(.primary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                            .buttonStyle(PlainButtonStyle())
+                            // 帯域ラベル
+                            Text("\(Int(viewModel.eqBandsFrequencies[index])) Hz")
+                                .frame(width: 60, alignment: .leading)
+                                .font(.system(size: 13))
+                                .foregroundColor(.secondary)
                             
-                            // 右側：削除ボタン
-                            Button(action: {
-                                viewModel.removePreset(named: preset.name)
-                            }) {
-                                Image(systemName: "trash")
-                                    .foregroundColor(.red)
+                            // フィルタータイプ選択（Picker）
+                            Picker("", selection: $filterTypes[index]) {
+                                Text("Parametric").tag(AVAudioUnitEQFilterType.parametric)
+                                Text("Low Shelf").tag(AVAudioUnitEQFilterType.lowShelf)
+                                Text("High Shelf").tag(AVAudioUnitEQFilterType.highShelf)
                             }
-                            .buttonStyle(PlainButtonStyle())
-                            .frame(width: 44, height: 44)
+                            .pickerStyle(SegmentedPickerStyle())
                         }
                     }
-                }
-            }
-            .listStyle(InsetGroupedListStyle())
-            .navigationTitle("Load Preset")
-            .navigationBarItems(trailing: Button("Cancel") {
-                presentationMode.wrappedValue.dismiss()
-            })
-        }
-    }
-}
-
-// MARK: - PlaylistView
-/// プレイリスト画面。各音声ファイル項目を表示し、タップで再生切り替え、ゴミ箱ボタンで削除できる
-struct PlaylistView: View {
-    @Environment(\.presentationMode) var presentationMode
-    @ObservedObject var viewModel: AudioEngineViewModel
-    
-    var body: some View {
-        NavigationView {
-            List {
-                ForEach(viewModel.playlistItems) { item in
-                    HStack {
-                        // 左側：タップで音声を選択してシートを閉じる
-                        VStack(alignment: .leading) {
-                            Text(item.title)
-                                .font(.headline)
-                            Text(String(format: "Duration: %.2f sec", item.duration))
-                                .font(.subheadline)
-                        }
-                        .onTapGesture {
-                            viewModel.loadPlaylistItem(item)
+                    
+                    
+                    Button("Save") {
+                        if !presetName.isEmpty {
+                            let newPreset = EQPreset(name: presetName,
+                                                     eqValues: viewModel.eqValues,
+                                                     filterTypes: filterTypes)
+                            viewModel.userPresets.append(newPreset)
+                            viewModel.saveUserPresetsToDefaults()
                             presentationMode.wrappedValue.dismiss()
                         }
-                        Spacer()
-                        // 右側：削除ボタン。タップしてもシートは閉じない
-                        Button(action: {
-                            if let index = viewModel.playlistItems.firstIndex(where: { $0.id == item.id }) {
-                                viewModel.playlistItems.remove(at: index)
-                                viewModel.savePlaylistToDefaults()
-                                // 現在再生中の項目が削除された場合、クリアする
-                                if viewModel.currentPlaylistItem?.id == item.id {
-                                    viewModel.currentPlaylistItem = nil
-                                }
-                            }
-                        }) {
-                            Image(systemName: "trash")
-                                .foregroundColor(.red)
-                        }
                     }
-                    .padding(.vertical, 4)
                 }
+                .navigationTitle("Save Preset")
+                .navigationBarItems(trailing: Button("Cancel") {
+                    presentationMode.wrappedValue.dismiss()
+                })
             }
-            .navigationTitle("Playlist")
-            .navigationBarItems(trailing: Button("Done") {
-                presentationMode.wrappedValue.dismiss()
-            })
+        }
+    }
+    
+    // MARK: - Preview
+    struct AudioEqualizerContentView_Previews: PreviewProvider {
+        static var previews: some View {
+            AudioEqualizerContentView()
+                .environmentObject(AudioEngineViewModel())
+                .previewInterfaceOrientation(.landscapeLeft)
+                .frame(width: 1024, height: 768)
         }
     }
 }
-
-// MARK: - Preview
-struct AudioEqualizerContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        AudioEqualizerContentView()
-            .environmentObject(AudioEngineViewModel())
-            .previewInterfaceOrientation(.landscapeLeft)
-            .frame(width: 1024, height: 768)
-    }
-}
-

@@ -1,0 +1,43 @@
+.
+├── 10bandEQ_test
+│   ├── AppDelegate.swift
+│   ├── Assets.xcassets
+│   │   ├── AccentColor.colorset
+│   │   ├── AppIcon.appiconset
+│   │   └── Contents.json
+│   ├── AudioEqualizerContentView.swift
+│   ├── AudioEqualizerViewController.swift
+│   ├── AudioInterfaceSettingsView.swift
+│   ├── AudioSessionManager.swift
+│   ├── CombinedSettingsView.swift
+│   ├── ContentView.swift
+│   ├── Custom Slider
+│   │   └── SliderTrack.swift
+│   ├── FileManagerHelper.swift
+│   ├── HeaderView.swift
+│   ├── LanguageSettingsView.swift
+│   ├── MIDIManager.swift
+│   ├── MIDIMapping.swift
+│   ├── MIDIMappingEditorView.swift
+│   ├── MIDIMappingSettingsView.swift
+│   ├── MIDIMappingViewModel.swift
+│   ├── MyApp.swift
+│   ├── Preview Content
+│   │   └── Preview Assets.xcassets
+│   ├── Property List.plist
+│   ├── SceneDelegate.swift
+│   ├── SettingsView.swift
+│   └── _0bandEQ_test.xcdatamodeld
+│       └── _0bandEQ_test.xcdatamodel
+├── 10bandEQ_test.xcodeproj
+│   ├── project.pbxproj
+│   ├── project.xcworkspace
+│   │   ├── contents.xcworkspacedata
+│   │   ├── xcshareddata
+│   │   └── xcuserdata
+│   └── xcuserdata
+│       └── nakashizukamasako.xcuserdatad
+├── README.md
+└── project_structure.txt
+
+16 directories, 25 files

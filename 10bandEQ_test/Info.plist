@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>UIStatusBarHidden</key>
+	<true/>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
+	<key>UIRequiresFullScreen</key>
+	<true/>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~mac</key>
+	<array>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	
+	<!-- Bundle Identifier (Xcode で自動設定) -->
+	<key>CFBundleIdentifier</key>
+	<string>com.example.10bandEQ_test</string>
+
+	<!-- 🎤 マイクの使用許可 -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>録音機能を提供するためにマイクを使用します。</string>
+
+	<key>NSPrivacyMicrophoneUsageDescription</key>
+	<string>アプリの録音機能を使用するためにマイクのアクセスが必要です。</string>
+
+	<!-- 🎛 MIDI & Bluetooth 関連 -->
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>このアプリでは Bluetooth および USB MIDI コントローラーを使用します。</string>
+
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>このアプリでは外部 MIDI コントローラーとの接続に Bluetooth を使用します。</string>
+
+	<key>NSUSBUsageDescription</key>
+	<string>このアプリでは USB 経由でのオーディオインターフェースや MIDI コントローラーを使用します。</string>
+
+	<!-- 🎧 バックグラウンドオーディオ & MIDI サポート -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>bluetooth-central</string>
+		<string>bluetooth-peripheral</string>
+		<string>inter-app-audio</string>
+		<string>external-accessory</string>
+	</array>
+
+	<!-- ✅ これを削除 -->
+	<!-- <key>NSDocumentsDirectoryUsageDescription</key>
+	<string>録音したオーディオを保存するためにストレージを使用します。</string> -->
+
+	<!-- ✅ 削除せずこのままでOK -->
+	<key>NSSupportsPersistentDownloads</key>
+	<true/>
+</dict>
+</plist>

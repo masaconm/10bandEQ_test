@@ -6,41 +6,25 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		E97D936F2D72441800452BCD /* Waveform in Frameworks */ = {isa = PBXBuildFile; productRef = E97D936E2D72441800452BCD /* Waveform */; };
-		E97D93722D72443100452BCD /* AudioKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = E97D93712D72443100452BCD /* AudioKitUI */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXFileReference section */
 		E9CB1CCE2D6B86EC0017A6D1 /* 10bandEQ_test.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = 10bandEQ_test.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		E971D0492D8A9BEE00630AE0 /* Exceptions for "10bandEQ_test" folder in "10bandEQ_test" target */ = {
+		E971D0CA2D8BEEA600630AE0 /* Exceptions for "10bandEQ_test" folder in "10bandEQ_test" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				"Property List.plist",
+				Info.plist,
 			);
 			target = E9CB1CCD2D6B86EC0017A6D1 /* 10bandEQ_test */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
-/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-		E971D04B2D8A9C0000630AE0 /* Exceptions for "10bandEQ_test" folder in "Compile Sources" phase from "10bandEQ_test" target */ = {
-			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
-			buildPhase = E9CB1CCA2D6B86EC0017A6D1 /* Sources */;
-			membershipExceptions = (
-				"Property List.plist",
-			);
-		};
-/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		E9CB1CD02D6B86EC0017A6D1 /* 10bandEQ_test */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				E971D0492D8A9BEE00630AE0 /* Exceptions for "10bandEQ_test" folder in "10bandEQ_test" target */,
-				E971D04B2D8A9C0000630AE0 /* Exceptions for "10bandEQ_test" folder in "Compile Sources" phase from "10bandEQ_test" target */,
+				E971D0CA2D8BEEA600630AE0 /* Exceptions for "10bandEQ_test" folder in "10bandEQ_test" target */,
 			);
 			path = 10bandEQ_test;
 			sourceTree = "<group>";
@@ -52,8 +36,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E97D93722D72443100452BCD /* AudioKitUI in Frameworks */,
-				E97D936F2D72441800452BCD /* Waveform in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -96,8 +78,6 @@
 			);
 			name = 10bandEQ_test;
 			packageProductDependencies = (
-				E97D936E2D72441800452BCD /* Waveform */,
-				E97D93712D72443100452BCD /* AudioKitUI */,
 			);
 			productName = 10bandEQ_test;
 			productReference = E9CB1CCE2D6B86EC0017A6D1 /* 10bandEQ_test.app */;
@@ -128,8 +108,6 @@
 			mainGroup = E9CB1CC52D6B86EC0017A6D1;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				E97D936D2D72441800452BCD /* XCRemoteSwiftPackageReference "Waveform" */,
-				E97D93702D72443100452BCD /* XCRemoteSwiftPackageReference "AudioKitUI" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E9CB1CCF2D6B86EC0017A6D1 /* Products */;
@@ -214,6 +192,8 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = 10bandEQ_test/Info.plist;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "";
 				"INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad[sdk=*]" = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
@@ -273,6 +253,8 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = 10bandEQ_test/Info.plist;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
@@ -313,7 +295,7 @@
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 2;
+				TARGETED_DEVICE_FAMILY = "2,6";
 			};
 			name = Debug;
 		};
@@ -346,7 +328,7 @@
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 2;
+				TARGETED_DEVICE_FAMILY = "2,6";
 			};
 			name = Release;
 		};
@@ -372,38 +354,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		E97D936D2D72441800452BCD /* XCRemoteSwiftPackageReference "Waveform" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/AudioKit/Waveform/";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.0.2;
-			};
-		};
-		E97D93702D72443100452BCD /* XCRemoteSwiftPackageReference "AudioKitUI" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/AudioKit/AudioKitUI.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.3.7;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		E97D936E2D72441800452BCD /* Waveform */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = E97D936D2D72441800452BCD /* XCRemoteSwiftPackageReference "Waveform" */;
-			productName = Waveform;
-		};
-		E97D93712D72443100452BCD /* AudioKitUI */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = E97D93702D72443100452BCD /* XCRemoteSwiftPackageReference "AudioKitUI" */;
-			productName = AudioKitUI;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = E9CB1CC62D6B86EC0017A6D1 /* Project object */;
 }

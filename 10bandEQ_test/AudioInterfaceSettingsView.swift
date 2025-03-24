@@ -1,3 +1,5 @@
+//AudioInterfaceSettingsView.swift
+
 import SwiftUI
 import AVFoundation
 
@@ -47,6 +49,13 @@ struct AudioInterfaceSettingsView: View {
             })
             .onAppear {
                 loadDevices()
+                NotificationCenter.default.addObserver(
+                    forName: AVAudioSession.routeChangeNotification,
+                    object: nil,
+                    queue: .main
+                ) { _ in
+                    loadDevices()
+                }
             }
             .alert(isPresented: $showingErrorAlert) {
                 Alert(title: Text("エラー"),
@@ -65,15 +74,30 @@ struct AudioInterfaceSettingsView: View {
     /// 利用可能な入力と現在の設定を取得する
     private func loadDevices() {
         let session = AVAudioSession.sharedInstance()
-        availableInputs = session.availableInputs ?? []
-        selectedInput = session.preferredInput
+        do {
+            try session.setCategory(.playAndRecord, mode: .default, options: [.allowBluetooth, .allowBluetoothA2DP, .defaultToSpeaker])
+            try session.setActive(true)
+
+            availableInputs = session.availableInputs?.filter {
+                $0.portType == .builtInMic ||
+                $0.portType == .bluetoothHFP ||
+                $0.portType == .usbAudio ||
+                $0.portType == .carAudio
+            } ?? []
+
+            selectedInput = session.preferredInput
+        } catch {
+            errorMessage = "オーディオセッションの設定に失敗しました: \(error.localizedDescription)"
+            showingErrorAlert = true
+        }
     }
-    
+
     /// 指定された入力デバイスを優先入力として設定する
     private func setPreferredInput(_ input: AVAudioSessionPortDescription) {
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setPreferredInput(input)
+            try session.setActive(true)
             selectedInput = input
         } catch {
             errorMessage = "入力設定の変更に失敗しました: \(error.localizedDescription)"

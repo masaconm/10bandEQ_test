@@ -24,125 +24,122 @@ struct AudioEqualizerContentView: View {
             .frame(height: 60)
             
             // 現在再生中の音声ファイル情報表示
-            if let current = viewModel.currentPlaylistItem {
-                VStack {
-                    Text(current.title)
-                        .font(.headline)
-                        .foregroundColor(.white)
-                    Text(String(format: "Duration: %.2f sec", current.duration))
-                        .font(.subheadline)
-                        .foregroundColor(.white)
-                }
-                .padding(.vertical, 5)
-            }
-            
-            // 波形表示領域（簡易例）
-            GeometryReader { geo in
-                let containerWidth = geo.size.width
-                let containerHeight = geo.size.height
-                let waveformWidth = containerWidth * zoomScale
-                let playbackX = CGFloat(viewModel.playbackProgress) * waveformWidth
-                let offsetX: CGFloat = waveformWidth > containerWidth ? (containerWidth / 2 - playbackX) : 0
-                let redBarX: CGFloat = waveformWidth > containerWidth ? (containerWidth / 2) : playbackX
-                
-                ZStack {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        if let sampleBuffer = viewModel.sampleBuffer {
-                            SmoothWaveformView(
-                                sampleBuffer: sampleBuffer,
-                                playbackProgress: viewModel.playbackProgress,
-                                zoomScale: zoomScale
-                            )
-                            .frame(width: waveformWidth, height: containerHeight)
-                            .offset(x: offsetX)
-                        } else {
-                            Text("Audio file not loaded")
-                                .foregroundColor(.white)
-                                .frame(width: containerWidth, height: containerHeight)
-                                .background(Color.gray)
-                        }
+            // 常に高さを確保し、未読み込み時はプレースホルダー表示
+            VStack(spacing: 0) {
+                // 再生中のファイル情報エリア
+                VStack(alignment: .leading, spacing: 4) {
+                    if let current = viewModel.currentPlaylistItem {
+                        Text(current.title)
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        Text(String(format: "Duration: %.2f sec", current.duration))
+                            .font(.subheadline)
+                            .foregroundColor(.white)
+                    } else {
+                        Text("Audio file not loaded")
+                            .font(.headline)
+                            .foregroundColor(.gray)
                     }
-                    Rectangle()
-                        .fill(Color.red)
-                        .frame(width: 2, height: containerHeight)
-                        .position(x: redBarX, y: containerHeight / 2)
                 }
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            viewModel.isSeeking = true
-                            let newProgress: Double
-                            if waveformWidth > containerWidth {
-                                newProgress = clamp(Double(value.location.x - offsetX) / Double(waveformWidth), 0.0, 1.0)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal)
+                .frame(height: 50)
+
+                // 波形表示エリア
+                GeometryReader { geo in
+                    let containerWidth = geo.size.width
+                    let containerHeight = geo.size.height
+                    let waveformWidth = containerWidth * zoomScale
+                    let playbackX = CGFloat(viewModel.playbackProgress) * waveformWidth
+                    let offsetX: CGFloat = waveformWidth > containerWidth ? (containerWidth / 2 - playbackX) : 0
+                    let redBarX: CGFloat = waveformWidth > containerWidth ? (containerWidth / 2) : playbackX
+
+                    ZStack {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            if let sampleBuffer = viewModel.sampleBuffer {
+                                SmoothWaveformView(
+                                    sampleBuffer: sampleBuffer,
+                                    playbackProgress: viewModel.playbackProgress,
+                                    zoomScale: zoomScale
+                                )
+                                .frame(width: waveformWidth, height: containerHeight)
+                                .offset(x: offsetX)
                             } else {
-                                newProgress = clamp(Double(value.location.x) / Double(containerWidth), 0.0, 1.0)
+                                Text("Audio file not loaded")
+                                    .foregroundColor(.white)
+                                    .frame(width: containerWidth, height: containerHeight)
+                                    .background(Color(hex: "#19191b")) // ← ここを変更
                             }
-                            viewModel.playbackProgress = newProgress
                         }
-                        .onEnded { value in
-                            let newProgress: Double
-                            if waveformWidth > containerWidth {
-                                newProgress = clamp(Double(value.location.x - offsetX) / Double(waveformWidth), 0.0, 1.0)
-                            } else {
-                                newProgress = clamp(Double(value.location.x) / Double(containerWidth), 0.0, 1.0)
-                            }
-                            viewModel.playbackProgress = newProgress
-                            if let file = viewModel.audioFile {
-                                viewModel.pausedFrame = AVAudioFramePosition(newProgress * Double(file.length))
-                                if viewModel.playerNode.isPlaying {
-                                    viewModel.seekToCurrentPausedFrameAndResume()
+
+                        Rectangle()
+                            .fill(Color.red)
+                            .frame(width: 2, height: containerHeight)
+                            .position(x: redBarX, y: containerHeight / 2)
+                    }
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                viewModel.isSeeking = true
+                                let newProgress: Double
+                                if waveformWidth > containerWidth {
+                                    newProgress = clamp(Double(value.location.x - offsetX) / Double(waveformWidth), 0.0, 1.0)
+                                } else {
+                                    newProgress = clamp(Double(value.location.x) / Double(containerWidth), 0.0, 1.0)
                                 }
+                                viewModel.playbackProgress = newProgress
                             }
-                            viewModel.isSeeking = false
-                        }
-                )
-                .simultaneousGesture(
-                    MagnificationGesture()
-                        .onChanged { value in
-                            zoomScale = value
-                        }
-                        .onEnded { value in
-                            zoomScale = value
-                        }
-                )
-            }
-            .frame(height: 150)
-            
-            // 拡大縮小ボタン
-            HStack(spacing: 20) {
-                Button(action: { zoomScale = max(zoomScale / 1.2, 0.5) }) {
-                    Text("–")
-                        .font(.largeTitle)
-                        .frame(width: 44, height: 44)
-                        .background(Color.gray.opacity(0.7))
-                        .cornerRadius(8)
-                        .foregroundColor(.white)
+                            .onEnded { value in
+                                let newProgress: Double
+                                if waveformWidth > containerWidth {
+                                    newProgress = clamp(Double(value.location.x - offsetX) / Double(waveformWidth), 0.0, 1.0)
+                                } else {
+                                    newProgress = clamp(Double(value.location.x) / Double(containerWidth), 0.0, 1.0)
+                                }
+                                viewModel.playbackProgress = newProgress
+                                if let file = viewModel.audioFile {
+                                    viewModel.pausedFrame = AVAudioFramePosition(newProgress * Double(file.length))
+                                    if viewModel.playerNode.isPlaying {
+                                        viewModel.seekToCurrentPausedFrameAndResume()
+                                    }
+                                }
+                                viewModel.isSeeking = false
+                            }
+                    )
+                    .simultaneousGesture(
+                        MagnificationGesture()
+                            .onChanged { value in
+                                zoomScale = value
+                            }
+                            .onEnded { value in
+                                zoomScale = value
+                            }
+                    )
                 }
-                Button(action: { zoomScale = zoomScale * 1.2 }) {
-                    Text("+")
-                        .font(.largeTitle)
-                        .frame(width: 44, height: 44)
-                        .background(Color.gray.opacity(0.7))
-                        .cornerRadius(8)
-                        .foregroundColor(.white)
-                }
+                .frame(height: 150)
             }
+            .background(Color(hex: "#19191b"))
+            .cornerRadius(8)
+            .padding(.horizontal)
+            .padding(.top, 8)
             
-            // EQ、GAIN、Level メーター表示
-            EQContainerView(eqBands: viewModel.eqBandsFrequencies,
-                            eqValues: $viewModel.eqValues,
-                            onSliderChanged: viewModel.updateEQ(at:value:),
-                            level: viewModel.level,
-                            gain: $viewModel.gain)
+// MARK: -EQ、GAIN、Level メーター表示
+//            EQContainerView(eqBands: viewModel.eqBandsFrequencies,
+//                            eqValues: $viewModel.eqValues,
+//                            onSliderChanged: viewModel.updateEQ(at:value:),
+//                            level: viewModel.level,
+//                            gain: $viewModel.gain)
+            EQContainerView(viewModel: viewModel)
+
                 .frame(height: 400)
             
             // 各シート表示用の操作ボタン群（ここに MIDI Mapping ボタンを追加）
             HStack(spacing: 20) {
-                Button("Play / Pause") { viewModel.togglePlayback() }
-                    .padding()
-                    .background(Color.white)
-                    .cornerRadius(5)
+//                Button("Play / Pause") { viewModel.togglePlayback() }
+//                    .padding()
+//                    .background(Color.white)
+//                    .cornerRadius(5)
                 Button("Select Audio File") { activeSheet = .picker }
                     .padding()
                     .background(Color.white)
@@ -163,6 +160,7 @@ struct AudioEqualizerContentView: View {
                     .padding()
                     .background(Color.white)
                     .cornerRadius(5)
+                
             }
             .padding(.bottom, 40)
             
