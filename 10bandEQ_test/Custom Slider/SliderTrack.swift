@@ -8,17 +8,18 @@
 import SwiftUI
 
 struct SliderTrack: View {
-    var percentage: CGFloat       // 充填部分の高さ（スライダーの値に基づく）
+    var percentage: CGFloat       // 塗りの高さ（現在のスライダー値）
     var width: CGFloat            // トラックの横幅
+    var height: CGFloat           // ✅ トラック全体の高さ（追加）
     var trackColor: Color = .black
     var fillColor: Color = .blue
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            // トラック背景（暗いグレー + inset shadow）
+            // トラック背景
             RoundedRectangle(cornerRadius: 4)
                 .fill(trackColor)
-                .frame(width: width)
+                .frame(width: width, height: height)  // ✅ 高さ指定追加
                 .cssInsetShadow(
                     cornerRadius: 4,
                     shadowColor: .black,
@@ -27,12 +28,12 @@ struct SliderTrack: View {
                     opacity: 1.0
                 )
 
-            // 塗り（fillColor）＋ グロー効果
+            // 塗り（値に応じて変化）
             RoundedRectangle(cornerRadius: 4)
                 .fill(fillColor)
-                .shadow(color: fillColor.opacity(0.8), radius: 10, x: 0, y: 0) // グロー（光）
+                .shadow(color: fillColor.opacity(0.8), radius: 10)
                 .frame(width: width, height: percentage)
         }
-        .frame(width: width)
+        .frame(width: width, height: height) // ✅ 外枠も高さ指定
     }
 }

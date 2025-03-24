@@ -5,7 +5,7 @@ import SwiftUI
 struct CombinedSettingsView: View {
     enum SettingsTab: String, CaseIterable, Identifiable {
         case audio = "Audio Settings"
-        case midi = "MIDI Settings"
+//        case midi = "MIDI Settings"
         case language = "Language"
         
         var id: Self { self }
@@ -32,9 +32,9 @@ struct CombinedSettingsView: View {
                     switch selectedTab {
                     case .audio:
                         AudioInterfaceSettingsView()
-                    case .midi:
-                        // MIDIMappingEditorView の内容をそのまま表示
-                        MIDIMappingSettingsView(mappings: $midiMappingVM.mappings)
+//                    case .midi:
+//                        // MIDIMappingEditorView の内容をそのまま表示
+//                        MIDIMappingSettingsView(mappings: $midiMappingVM.mappings)
                     case .language:
                         LanguageSettingsView()
                     }

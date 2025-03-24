@@ -741,6 +741,7 @@ struct CustomVerticalSlider: View {
                 SliderTrack(
                     percentage: fillHeight,
                     width: width,
+                    height: height,
                     trackColor: trackColor,
                     fillColor: fillColor
                 )
@@ -765,62 +766,7 @@ struct CustomVerticalSlider: View {
     }
 }
 
-
-// MARK: - PresetSaveView
-/// ユーザーが EQ プリセットを保存するための画面
-struct PresetSaveView: View {
-    @Environment(\.presentationMode) var presentationMode
-    @ObservedObject var viewModel: AudioEngineViewModel
-    @State private var presetName: String = ""
-    @State private var filterTypes: [AVAudioUnitEQFilterType] = Array(repeating: .parametric, count: 10)
-    
-    var body: some View {
-        NavigationView {
-            Form {
-                Section(header: Text("Preset Name")) {
-                    TextField("Enter name", text: $presetName)
-                }
-                
-                Section(header: Text("Filter Type (per band)")) {
-                    ForEach(0..<viewModel.eqBandsFrequencies.count, id: \.self) { index in
-                        HStack {
-                            // 帯域ラベル
-                            Text("\(Int(viewModel.eqBandsFrequencies[index])) Hz")
-                                .frame(width: 60, alignment: .leading)
-                                .font(.system(size: 13))
-                                .foregroundColor(.secondary)
-                            
-                            // フィルタータイプ選択（Picker）
-                            Picker("", selection: $filterTypes[index]) {
-                                Text("Parametric").tag(AVAudioUnitEQFilterType.parametric)
-                                Text("Low Shelf").tag(AVAudioUnitEQFilterType.lowShelf)
-                                Text("High Shelf").tag(AVAudioUnitEQFilterType.highShelf)
-                            }
-                            .pickerStyle(SegmentedPickerStyle())
-                        }
-                    }
-                    
-                    
-                    Button("Save") {
-                        if !presetName.isEmpty {
-                            let newPreset = EQPreset(name: presetName,
-                                                     eqValues: viewModel.eqValues,
-                                                     filterTypes: filterTypes)
-                            viewModel.userPresets.append(newPreset)
-                            viewModel.saveUserPresetsToDefaults()
-                            presentationMode.wrappedValue.dismiss()
-                        }
-                    }
-                }
-                .navigationTitle("Save Preset")
-                .navigationBarItems(trailing: Button("Cancel") {
-                    presentationMode.wrappedValue.dismiss()
-                })
-            }
-        }
-    }
-    
-    // MARK: - Preview
+//    // MARK: - Preview
     struct AudioEqualizerContentView_Previews: PreviewProvider {
         static var previews: some View {
             AudioEqualizerContentView()
@@ -829,4 +775,4 @@ struct PresetSaveView: View {
                 .frame(width: 1024, height: 768)
         }
     }
-}
+

@@ -14,22 +14,22 @@ struct AudioInterfaceSettingsView: View {
         NavigationView {
             VStack {
                 // 現在の出力デバイス名を表示
-                Text("現在の出力: \(currentOutputName)")
+                Text("Current Output: \(currentOutputName)")
                     .font(.headline)
                     .padding()
                 
                 // 利用可能な入力デバイスの一覧を表示
                 List {
-                    Section(header: Text("入力デバイス")) {
+                    Section(header: Text("Input device")) {
                         if availableInputs.isEmpty {
-                            Text("利用可能な入力がありません")
+                            Text("No input available")
                         } else {
                             ForEach(availableInputs, id: \.uid) { input in
                                 HStack {
                                     Text(input.portName)
                                     Spacer()
                                     if input == selectedInput {
-                                        Text("選択中")
+                                        Text("Selected")
                                             .foregroundColor(.green)
                                     }
                                 }
@@ -43,8 +43,8 @@ struct AudioInterfaceSettingsView: View {
                 }
                 .listStyle(InsetGroupedListStyle())
             }
-            .navigationTitle("オーディオインターフェース設定")
-            .navigationBarItems(trailing: Button("更新") {
+            .navigationTitle("Audio Interface Settings")
+            .navigationBarItems(trailing: Button("Update") {
                 loadDevices()
             })
             .onAppear {
@@ -58,7 +58,7 @@ struct AudioInterfaceSettingsView: View {
                 }
             }
             .alert(isPresented: $showingErrorAlert) {
-                Alert(title: Text("エラー"),
+                Alert(title: Text("Error"),
                       message: Text(errorMessage),
                       dismissButton: .default(Text("OK")))
             }
@@ -68,7 +68,7 @@ struct AudioInterfaceSettingsView: View {
     /// 現在の出力デバイス名を返す
     private var currentOutputName: String {
         let session = AVAudioSession.sharedInstance()
-        return session.currentRoute.outputs.first?.portName ?? "不明"
+        return session.currentRoute.outputs.first?.portName ?? "Unknown"
     }
     
     /// 利用可能な入力と現在の設定を取得する
@@ -87,7 +87,7 @@ struct AudioInterfaceSettingsView: View {
 
             selectedInput = session.preferredInput
         } catch {
-            errorMessage = "オーディオセッションの設定に失敗しました: \(error.localizedDescription)"
+            errorMessage = "Failed to set up audio session: \(error.localizedDescription)"
             showingErrorAlert = true
         }
     }
@@ -100,7 +100,7 @@ struct AudioInterfaceSettingsView: View {
             try session.setActive(true)
             selectedInput = input
         } catch {
-            errorMessage = "入力設定の変更に失敗しました: \(error.localizedDescription)"
+            errorMessage = "Failed to change input settings: \(error.localizedDescription)"
             showingErrorAlert = true
         }
     }

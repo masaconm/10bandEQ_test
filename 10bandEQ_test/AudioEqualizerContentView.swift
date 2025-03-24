@@ -125,44 +125,11 @@ struct AudioEqualizerContentView: View {
             .padding(.top, 8)
             
 // MARK: -EQ、GAIN、Level メーター表示
-//            EQContainerView(eqBands: viewModel.eqBandsFrequencies,
-//                            eqValues: $viewModel.eqValues,
-//                            onSliderChanged: viewModel.updateEQ(at:value:),
-//                            level: viewModel.level,
-//                            gain: $viewModel.gain)
-            EQContainerView(viewModel: viewModel)
 
-                .frame(height: 400)
+            EQContainerView(viewModel: viewModel, activeSheet: $activeSheet)
             
-            // 各シート表示用の操作ボタン群（ここに MIDI Mapping ボタンを追加）
-            HStack(spacing: 20) {
-//                Button("Play / Pause") { viewModel.togglePlayback() }
-//                    .padding()
-//                    .background(Color.white)
-//                    .cornerRadius(5)
-                Button("Select Audio File") { activeSheet = .picker }
-                    .padding()
-                    .background(Color.white)
-                    .cornerRadius(5)
-                Button("Save Preset") { activeSheet = .savePreset }
-                    .padding()
-                    .background(Color.white)
-                    .cornerRadius(5)
-                Button("Load Preset") { activeSheet = .loadPreset }
-                    .padding()
-                    .background(Color.white)
-                    .cornerRadius(5)
-                Button("Playlist") { activeSheet = .playlist }
-                    .padding()
-                    .background(Color.white)
-                    .cornerRadius(5)
-                Button("MIDI Mapping") { activeSheet = .midiMapping }
-                    .padding()
-                    .background(Color.white)
-                    .cornerRadius(5)
-                
-            }
-            .padding(.bottom, 40)
+            .frame(height: 550)
+           
             
             Spacer()
         }
@@ -173,29 +140,54 @@ struct AudioEqualizerContentView: View {
                 viewModel.startAudioEngine()
             }
         }
-        // 各種シートの表示
-        .sheet(item: $activeSheet) { sheet in
+        // 他のシート用：通常の .sheet（.picker を除外）
+
+        .sheet(item: Binding(
+            get: { activeSheet != .picker ? activeSheet : nil },
+            set: { activeSheet = $0 }
+        )) { sheet in
             switch sheet {
             case .settings:
-                CombinedSettingsView()  // ここを CombinedSettingsView() に変更
+                CombinedSettingsView()
+
             case .savePreset:
                 PresetSaveView(viewModel: viewModel)
+
             case .loadPreset:
                 PresetLoadView(viewModel: viewModel)
+
             case .playlist:
                 PlaylistView(viewModel: viewModel)
-            case .picker:
-                DocumentPicker { urls in
-                    for url in urls {
-                        viewModel.addAudioFileToPlaylist(url: url)
-                    }
-                    activeSheet = nil
-                }
+
             case .midiMapping:
                 MIDIMappingSettingsView(mappings: $viewModel.midiMappings)
+
+            case .picker:
+                // 無視（下で処理）
+                EmptyView()
             }
         }
 
+        // picker（ファイル選択）だけ fullScreenCover
+
+        .fullScreenCover(
+            isPresented: Binding(
+                get: { activeSheet == .picker },
+                set: { if !$0 { activeSheet = nil } }
+            )
+        ) {
+            DocumentPicker { urls in
+                for url in urls {
+                    viewModel.addAudioFileToPlaylist(url: url)
+                }
+                activeSheet = nil
+            }
+        }
+
+        }
+
+
+
     }
-}
+
 

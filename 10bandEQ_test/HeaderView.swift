@@ -3,38 +3,32 @@
 import SwiftUI
 
 struct HeaderView: View {
-    // Settings ボタンタップ時のアクション
     let settingsAction: () -> Void
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .topTrailing) {
-                // 左側にロゴを表示
-                HStack {
-                    Image("logo")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 60, height: 60)
-                        .padding(.leading, 10)
-                    Spacer()
-                }
-                // 右上に歯車アイコンの Settings ボタンを配置
-                Button(action: settingsAction) {
-                    Image(systemName: "gearshape.fill")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 40, height: 40)
-                        .foregroundColor(.white)
-                        .padding(.trailing, 20)
-                        // 安全領域を考慮して上部に余白を追加
-                        .padding(.top, geo.safeAreaInsets.top + 20)
-                }
+        HStack {
+            // 左ロゴ
+            Image("logo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(height: 40) // ✅ 高さを統一
+                .padding(.leading, 15)
+
+            Spacer()
+
+            // 右：設定アイコン
+            Button(action: settingsAction) {
+                Image(systemName: "gearshape.fill")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(height: 40) // ✅ 同じ高さ
+                    .foregroundColor(.white)
             }
-            .frame(width: geo.size.width, height: geo.size.height)
+            .padding(.trailing, 20)
         }
+        .padding(.top, 25)
         .frame(height: 60)
-        .background(Color(hex: "#242529"))
-        // 上部の安全領域を無視して背景を伸ばす場合
+        .background(Color(hex: "#1A1A1A"))
         .ignoresSafeArea(edges: .top)
     }
 }
