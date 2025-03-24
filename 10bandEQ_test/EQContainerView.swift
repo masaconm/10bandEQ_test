@@ -99,12 +99,12 @@ struct EQContainerView: View {
                     .background(Color(hex: "#19191b"))
                     .cornerRadius(8)
 
-                    // MARK: 中央：EQ + GAIN + LEVEL
+                    // MARK: 中央：EQ + GAIN + LEVEL（幅拡張）
                     HStack(alignment: .top, spacing: 24) {
                         eqSlidersView(
                             sliderHeight: contentHeight * 0.66,
                             labelHeight: contentHeight * 0.2,
-                            eqAreaWidth: geo.size.width * 0.5,
+                            eqAreaWidth: geo.size.width * 0.6, // 幅を広げる
                             containerHeight: contentHeight
                         )
                         gainSliderView(
@@ -122,30 +122,43 @@ struct EQContainerView: View {
                     .background(Color(hex: "#19191b"))
                     .cornerRadius(8)
 
-                    // MARK: 右：Save / Load Preset カラム
-                    VStack(spacing: 16) {
+                    // 右カラムとの間隔を左と同じ10pxに揃える
+                    Rectangle().frame(width: 10).opacity(0) // ← Spacerの代わりに固定スペース
+
+                    // MARK: 右：Save / Load Preset カラム（高さ揃え + 右寄せ + ヘッダ + ボタン短縮 + サイズ調整）
+                    VStack(spacing: 12) {
+                        // Preset ラベル（上部に追加）
+                        Text("Preset")
+                            .font(.caption)
+                            .foregroundColor(.white)
+                            .frame(height: 20)
+
+                        // Save ボタン
                         Button {
                             activeSheet = .savePreset
                         } label: {
-                            Text("Save Preset")
-                                .frame(width: 100, height: 40)
+                            Text("Save")
+                                .frame(width: 50, height: 40)
                         }
                         .customBottomButton()
 
+                        // Load ボタン
                         Button {
                             activeSheet = .loadPreset
                         } label: {
-                            Text("Load Preset")
-                                .frame(width: 100, height: 40)
+                            Text("Load")
+                                .frame(width: 50, height: 40)
                         }
                         .customBottomButton()
-
-                        Spacer()
                     }
-                    .frame(width: 120, height: contentHeight, alignment: .top)
-                    .padding()
+                    
+                    .frame(width: 70, height: contentHeight, alignment: .top)
+                    .padding(30)
+                    .frame(height: contentHeight)
                     .background(Color(hex: "#19191b"))
                     .cornerRadius(8)
+
+
                 }
 
                 // MARK: 下部操作列
