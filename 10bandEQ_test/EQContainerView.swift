@@ -15,7 +15,7 @@ struct EQContainerView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let contentHeight = geo.size.height * 0.8
+            let contentHeight = geo.size.height * 0.9
 
             VStack(spacing: 10) {
                 // MARK: - EQ & ボタン列（3列構成）
@@ -122,23 +122,23 @@ struct EQContainerView: View {
                     .background(Color(hex: "#19191b"))
                     .cornerRadius(8)
 
-                    // 右カラムとの間隔を左と同じ10pxに揃える
-                    Rectangle().frame(width: 10).opacity(0) // ← Spacerの代わりに固定スペース
+
 
                     // MARK: 右：Save / Load Preset カラム（高さ揃え + 右寄せ + ヘッダ + ボタン短縮 + サイズ調整）
-                    VStack(spacing: 12) {
+                    VStack(spacing: 16) {
                         // Preset ラベル（上部に追加）
                         Text("Preset")
+                            .padding(.top, 20)
                             .font(.caption)
                             .foregroundColor(.white)
-                            .frame(height: 20)
+                            
 
                         // Save ボタン
                         Button {
                             activeSheet = .savePreset
                         } label: {
                             Text("Save")
-                                .frame(width: 50, height: 40)
+                                .frame(width: 40, height: 50)
                         }
                         .customBottomButton()
 
@@ -147,16 +147,18 @@ struct EQContainerView: View {
                             activeSheet = .loadPreset
                         } label: {
                             Text("Load")
-                                .frame(width: 50, height: 40)
+                                .frame(width: 40, height: 50)
                         }
                         .customBottomButton()
                     }
                     
-                    .frame(width: 70, height: contentHeight, alignment: .top)
-                    .padding(30)
+                    .frame(width: 90, height: contentHeight, alignment: .top)
+                    .padding(10)
                     .frame(height: contentHeight)
                     .background(Color(hex: "#19191b"))
                     .cornerRadius(8)
+                    
+                    
 
 
                 }
@@ -235,6 +237,7 @@ struct EQContainerView: View {
                         .font(.system(size: 8))
                         .foregroundColor(.white)
                         .frame(width: 60, height: labelHeight / 4)
+                        .padding(.top, 10)
 
                     // dBラベル
                     Text(String(format: "%+05.1f dB", viewModel.eqValues[index]))
@@ -285,14 +288,15 @@ struct EQContainerView: View {
             Text("Gain")
                 .font(.system(size: 8))
                 .foregroundColor(.white)
-                .frame(height: labelHeight / 6)
+                .frame(width: 60, height: labelHeight / 4)
+                .padding(.top, 10)
 
             Text(String(format: "%.2f", viewModel.gain))
                 .font(.system(size: 9, design: .monospaced))
                 .foregroundColor(.white)
                 .frame(width: 60, height: labelHeight / 4)
         }
-        .frame(width: gainSliderWidth, height: sliderHeight + labelHeight, alignment: .top) // ✅ 揃え
+        .frame(width: gainSliderWidth, height: sliderHeight + labelHeight, alignment: .top) // 揃え
     }
 
     // MARK: - LEVEL
@@ -303,13 +307,19 @@ struct EQContainerView: View {
 
             VStack(spacing: 2) {
                 Text("Current Loudness")
+                    .font(.system(size: 8))
+                    .foregroundColor(.white)
+                    .frame(width: 60, height: labelHeight / 4)
+                    .padding(.top, 10)
+
                 Text(String(format: "%.2f dB", viewModel.level))
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundColor(.white)
+                    .frame(width: 60, height: labelHeight / 4)
             }
-            .font(.system(size: 9))
-            .foregroundColor(.white)
-            .frame(width: 60)
+
         }
-        .frame(height: sliderHeight + labelHeight, alignment: .top) // ✅ 上揃え
+        .frame(height: sliderHeight + labelHeight, alignment: .top) // 上揃え
     }
 
 }

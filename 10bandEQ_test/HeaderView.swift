@@ -27,7 +27,7 @@ struct HeaderView: View {
             .padding(.trailing, 20)
         }
         .padding(.top, 25)
-        .frame(height: 60)
+        .frame(height: 70)
         .background(Color(hex: "#1A1A1A"))
         .ignoresSafeArea(edges: .top)
     }
