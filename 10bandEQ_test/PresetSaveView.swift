@@ -9,6 +9,20 @@ struct PresetSaveView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 16) {
+
+                // MARK: - PRESET NAME 入力欄
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Preset Name")
+                        .foregroundColor(Color(hex: "#ccffff"))
+                        .font(.subheadline)
+                    TextField("Enter name", text: $presetName)
+                        .foregroundColor(Color(hex: "#393d40"))
+                        .padding(8)
+                        .background(Color.white)
+                        .cornerRadius(6)
+                }
+                .padding(.horizontal)
+                
                 // MARK: - SAVEボタン
                 Button(action: {
                     if !presetName.isEmpty {
@@ -25,24 +39,12 @@ struct PresetSaveView: View {
                 }) {
                     Text("SAVE")
                         .frame(maxWidth: .infinity, alignment: .center)
-                        .foregroundColor(.white)
+                        .foregroundColor(.black)
+                        .font(.system(size: 16, weight: .bold))
                         .padding(.vertical, 8)
-                        .background(Color(hex: "#1b2527"))
+                        .background(Color(hex: "#ccffff"))
                         .cornerRadius(6)
                         .shadow(color: .black.opacity(0.4), radius: 4, x: 0, y: 2)
-                }
-                .padding(.horizontal)
-
-                // MARK: - PRESET NAME 入力欄
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Preset Name")
-                        .foregroundColor(.white)
-                        .font(.subheadline)
-                    TextField("Enter name", text: $presetName)
-                        .foregroundColor(Color(hex: "#393d40"))
-                        .padding(8)
-                        .background(Color.white)
-                        .cornerRadius(6)
                 }
                 .padding(.horizontal)
 

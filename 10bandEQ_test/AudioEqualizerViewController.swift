@@ -225,7 +225,7 @@ class AudioEngineViewModel: ObservableObject {
     // 組み込みプリセットおよびユーザープリセット（EQ設定）
     @Published var defaultPresets: [EQPreset] = [
         EQPreset(
-            name: "Flat",
+            name: "FLAT",
             eqValues: Array(repeating: 0, count: 10),
             filterTypes: Array(repeating: .parametric, count: 10)
         ),
@@ -697,8 +697,8 @@ struct LevelMeterViewSwiftUI: View {
 
 // MARK: -つまみ部分：固定サイズの正方形
 struct SliderThumb: View {
-    var thumbWidth: CGFloat = 40
-    var thumbHeight: CGFloat = 20
+    var thumbWidth: CGFloat = 50
+    var thumbHeight: CGFloat = 30
     var thumbColor: Color = Color(hex: "#363739")
 
     var body: some View {
@@ -724,8 +724,8 @@ struct CustomVerticalSlider: View {
     @Binding var value: Float
     var range: ClosedRange<Float>
     var thumbWidth: CGFloat = 40          // ✅ 横幅
-    var thumbHeight: CGFloat = 20         // ✅ 高さ
-    var trackColor: Color = .gray
+    var thumbHeight: CGFloat = 30         // ✅ 高さ
+    var trackColor: Color = .black
     var fillColor: Color = .blue
     var thumbColor: Color = .white
 

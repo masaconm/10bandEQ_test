@@ -8,7 +8,10 @@ struct EQContainerView: View {
     @ObservedObject var viewModel: AudioEngineViewModel
     @Binding var activeSheet: ActiveSheet?
     @State private var isRecording = false
-
+    @State private var isFlatButtonPressed = false
+    @State private var isSaveButtonPressed = false
+    @State private var isLoadButtonPressed = false
+    
     private var eqBands: [Float] {
         viewModel.eqBandsFrequencies
     }
@@ -20,91 +23,133 @@ struct EQContainerView: View {
             VStack(spacing: 10) {
                 // MARK: - EQ & ボタン列（3列構成）
                 HStack(spacing: 10) {
-
+                    
                     // MARK: 左：操作ボタン列
-                    VStack(spacing: 16) {
-                        // HI / MID / LOW
-                        VStack(spacing: 8) {
-                            ForEach(["HI", "MID", "LOW"], id: \.self) { name in
-                                let isSelected = selectedBands.contains(name)
-                                Button(action: {
-                                    if isSelected {
-                                        selectedBands.remove(name)
-                                    } else {
-                                        selectedBands = [name]
-                                        viewModel.applyBandOnly(name)
-                                    }
-                                }) {
-                                    Text(name)
-                                        .font(.caption)
-                                        .foregroundColor(isSelected ? Color(hex: "#d82c19") : Color(hex: "#8a8b8d"))
-                                        .frame(width: 60, height: 60)
-                                        .background(Color(hex: "#2a2e2f"))
-                                        .cornerRadius(4)
-                                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color(hex: "#202425"), lineWidth: 1))
-                                        .shadow(color: isSelected ? Color(hex: "#d82c19").opacity(0.6) : .clear, radius: 6)
+                    // HI / MID / LOW
+                    VStack(spacing: 8) {
+                        ForEach(["HI", "MID", "LOW"], id: \.self) { name in
+                            let isSelected = selectedBands.contains(name)
+                            Button(action: {
+                                if isSelected {
+                                    selectedBands.remove(name)
+                                } else {
+                                    selectedBands = [name]
+                                    viewModel.applyBandOnly(name)
                                 }
-                                .buttonStyle(PlainButtonStyle())
+                            }) {
+                                Text(name)
+                                    .font(.system(size: 16, weight: .heavy))
+                                    .foregroundColor(isSelected ? .black : Color(hex: "#ccffff")) // 選択中は黒文字
+                                    .frame(width: 60, height: 60)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(isSelected ? Color(hex: "#ff0000") : Color(hex: "#292b2a"))
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .stroke(Color(hex: "#202425"), lineWidth: 1)
+                                    )
+                                    .shadow(
+                                        color: isSelected ? Color(hex: "#ff0000").opacity(0.8) : .clear,
+                                        radius: isSelected ? 10 : 0
+                                    )
                             }
+                            .buttonStyle(PlainButtonStyle())
                         }
-
-                        // Default
+                        
+                        
+                        // FLAT ボタン
                         Button(action: {
                             selectedBands.removeAll()
                             viewModel.resetEQToDefault()
                         }) {
-                            Text("Default")
-                                .font(.caption)
-                                .foregroundColor(.white)
+                            Text("FLAT")
+                                .font(.system(size: 16, weight: .heavy))
+                                .foregroundColor(isFlatButtonPressed ? .black : Color(hex: "#ccffff")) // ← ここだけ変更！
                                 .frame(width: 60, height: 60)
-                                .background(Color(hex: "#2a2e2f"))
-                                .cornerRadius(4)
-                                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color(hex: "#202425"), lineWidth: 1))
+                                .background(
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(isFlatButtonPressed ? Color(hex: "#ccffff") : Color(hex: "#292b2a"))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .stroke(Color(hex: "#202425"), lineWidth: 1)
+                                )
+                                .shadow(
+                                    color: isFlatButtonPressed ? Color(hex: "#00FFFF").opacity(0.8) : .clear,
+                                    radius: 10
+                                )
                         }
-
-
-                        // 録音・再生
-                        VStack(spacing: 16) {
+                        .buttonStyle(PlainButtonStyle())
+                        .simultaneousGesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { _ in isFlatButtonPressed = true }
+                                .onEnded { _ in isFlatButtonPressed = false }
+                        )
+                        
+                        // 録音・再生ボタン
+                        VStack(spacing: 8) {
+                            // 録音
                             Button(action: { isRecording.toggle() }) {
                                 ZStack {
                                     RoundedRectangle(cornerRadius: 4)
-                                        .fill(Color(hex: "#2a2e2f"))
+                                        .fill(isRecording ? Color(hex: "#d82c19") : Color(hex: "#292b2a")) // 背景色切り替え
                                         .frame(width: 60, height: 60)
-                                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color(hex: "#202425"), lineWidth: 1))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 4)
+                                                .stroke(Color(hex: "#202425"), lineWidth: 1)
+                                        )
+                                        .shadow(
+                                            color: isRecording ? Color(hex: "#d82c19").opacity(0.8) : .clear,
+                                            radius: isRecording ? 12 : 0
+                                        )
+                                    
                                     Image(systemName: "record.circle")
                                         .resizable()
                                         .frame(width: 30, height: 30)
-                                        .foregroundColor(isRecording ? Color(hex: "#d82c19") : Color(hex: "#818284"))
+                                        .foregroundColor(Color(hex: "#ccffff")) // 常に同じ色
                                 }
                             }
-
+                            .buttonStyle(PlainButtonStyle())
+                            
+                            // 再生
                             Button(action: {
                                 viewModel.togglePlayback()
                             }) {
                                 ZStack {
                                     RoundedRectangle(cornerRadius: 4)
-                                        .fill(viewModel.playerNode.isPlaying ? Color(hex: "#212224") : Color(hex: "#292b2a"))
+                                        .fill(viewModel.playerNode.isPlaying ? Color(hex: "#d82c19") : Color(hex: "#292b2a")) // 背景切り替え
                                         .frame(width: 60, height: 60)
-                                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color(hex: "#202425"), lineWidth: 1))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 4)
+                                                .stroke(Color(hex: "#202425"), lineWidth: 1)
+                                        )
+                                        .shadow(
+                                            color: viewModel.playerNode.isPlaying ? Color(hex: "#d82c19").opacity(0.8) : .clear,
+                                            radius: viewModel.playerNode.isPlaying ? 12 : 0
+                                        )
+                                    
                                     Image(systemName: "play.fill")
                                         .resizable()
-                                        .frame(width: 30, height: 30)
-                                        .foregroundColor(viewModel.playerNode.isPlaying ? Color(hex: "#d82c19") : Color(hex: "#8a8b8d"))
+                                        .frame(width: 25, height: 25)
+                                        .foregroundColor(Color(hex: "#ccffff")) // 常に同じ色
                                 }
                             }
+                            .buttonStyle(PlainButtonStyle())
+                            
                         }
                     }
                     .padding()
-                    .frame(width: 100, height: contentHeight, alignment: .top)
+                    .frame(width: 80, height: contentHeight, alignment: .top)
                     .background(Color(hex: "#19191b"))
                     .cornerRadius(8)
-
+                    
                     // MARK: 中央：EQ + GAIN + LEVEL（幅拡張）
-                    HStack(alignment: .top, spacing: 24) {
+                    HStack(alignment: .top, spacing: 20) {
                         eqSlidersView(
                             sliderHeight: contentHeight * 0.66,
                             labelHeight: contentHeight * 0.2,
-                            eqAreaWidth: geo.size.width * 0.6, // 幅を広げる
+                            eqAreaWidth: geo.size.width * 0.65, // 幅を広げる
                             containerHeight: contentHeight
                         )
                         gainSliderView(
@@ -115,51 +160,117 @@ struct EQContainerView: View {
                         levelMeterView(
                             sliderHeight: contentHeight * 0.66,
                             labelHeight: contentHeight * 0.2
+                            
                         )
                     }
-                    .padding(30)
-                    .frame(height: contentHeight)
-                    .background(Color(hex: "#19191b"))
-                    .cornerRadius(8)
-
-
-
-                    // MARK: 右：Save / Load Preset カラム（高さ揃え + 右寄せ + ヘッダ + ボタン短縮 + サイズ調整）
-                    VStack(spacing: 16) {
-                        // Preset ラベル（上部に追加）
-                        Text("Preset")
-                            .padding(.top, 20)
-                            .font(.caption)
-                            .foregroundColor(.white)
-                            
-
-                        // Save ボタン
-                        Button {
-                            activeSheet = .savePreset
-                        } label: {
-                            Text("Save")
-                                .frame(width: 40, height: 50)
-                        }
-                        .customBottomButton()
-
-                        // Load ボタン
-                        Button {
-                            activeSheet = .loadPreset
-                        } label: {
-                            Text("Load")
-                                .frame(width: 40, height: 50)
-                        }
-                        .customBottomButton()
-                    }
-                    
-                    .frame(width: 90, height: contentHeight, alignment: .top)
                     .padding(10)
                     .frame(height: contentHeight)
                     .background(Color(hex: "#19191b"))
                     .cornerRadius(8)
                     
                     
+                    
+                    // MARK: 右：3カラム目全体
+                    VStack(spacing: 8) {
+                        
+                        // 上部：Preset ラベル + Save / Load ボタンを囲む枠
+                        VStack(spacing: 8) {
+                            Text("Preset")
+                                .padding(.top, 12)
+                                .foregroundColor(Color(hex: "#ccffff"))
+                                .font(.system(size: 14, weight: .bold))
 
+                            // Save ボタン
+                            Button(action: {
+                                activeSheet = .savePreset
+                            }) {
+                                Text("SAVE")
+                                    .font(.system(size: 16, weight: .heavy))
+                                    .foregroundColor(isSaveButtonPressed ? .black : Color(hex: "#ccffff"))
+                                    .frame(width: 60, height: 60)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(isSaveButtonPressed ? Color(hex: "#ccffff") : Color(hex: "#212224"))
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .stroke(Color(hex: "#202425"), lineWidth: 1)
+                                    )
+                                    .shadow(
+                                        color: isSaveButtonPressed ? Color(hex: "#ccffff").opacity(0.8) : .clear,
+                                        radius: isSaveButtonPressed ? 10 : 0
+                                    )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .simultaneousGesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged { _ in isSaveButtonPressed = true }
+                                    .onEnded { _ in isSaveButtonPressed = false }
+                            )
+
+                            // Load ボタン
+                            Button(action: {
+                                activeSheet = .loadPreset
+                            }) {
+                                Text("LOAD")
+                                    .font(.system(size: 16, weight: .heavy))
+                                    .foregroundColor(isLoadButtonPressed ? .black : Color(hex: "#ccffff"))
+                                    .frame(width: 60, height: 60)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(isLoadButtonPressed ? Color(hex: "#ccffff") : Color(hex: "#212224"))
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .stroke(Color(hex: "#202425"), lineWidth: 1)
+                                    )
+                                    .shadow(
+                                        color: isLoadButtonPressed ? Color(hex: "#ccffff").opacity(0.8) : .clear,
+                                        radius: isLoadButtonPressed ? 10 : 0
+                                    )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .simultaneousGesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged { _ in isLoadButtonPressed = true }
+                                    .onEnded { _ in isLoadButtonPressed = false }
+                            )
+                        }
+                        .padding(8)
+                        .background(Color(hex: "#19191b"))
+                        .cornerRadius(8)
+
+                        // 下部：Extra Panel（3ボタン入り）
+                        VStack(spacing: 8) {
+                            ForEach(["OPTION 1", "OPTION 2", "OPTION 3"], id: \.self) { label in
+                                Button(action: {
+                                    print("\(label) tapped") // ← 必要に応じてアクション追加
+                                }) {
+                                    Text(label)
+                                        .font(.system(size: 16, weight: .heavy))
+                                        .foregroundColor(Color(hex: "#ccffff"))
+                                        .frame(width: 60, height: 60)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 4)
+                                                .fill(Color(hex: "#212224"))
+                                        )
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 4)
+                                                .stroke(Color(hex: "#202425"), lineWidth: 1)
+                                        )
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+
+                            Spacer() // 下に余白を残す
+                        }
+                        .padding(8)
+                        .background(Color(hex: "#1e1e1e"))
+                        .cornerRadius(8)
+
+
+                    }
+                    .frame(width: 65, height: contentHeight)
 
                 }
 
@@ -202,9 +313,9 @@ struct EQContainerView: View {
         CustomVerticalSlider(
             value: value,
             range: range,
-            thumbWidth: 40,
-            thumbHeight: 20,
-            trackColor: Color(hex: "#292d2e"),
+            thumbWidth: 50,
+            thumbHeight: 30,
+            trackColor: Color(hex: "#0f0f0f"),
             fillColor: Color(hex: "#00FFFF"),
             thumbColor: Color(hex: "#363739")
         )
@@ -220,62 +331,65 @@ struct EQContainerView: View {
     ) -> some View {
         HStack(alignment: .top, spacing: 10) {
             ForEach(0..<eqBands.count, id: \.self) { index in
-                let sliderBinding = Binding<Float>(
-                    get: { viewModel.eqValues[index] },
-                    set: { newValue in viewModel.updateEQ(at: index, value: newValue) }
-                )
-
                 VStack(spacing: 4) {
-                    // スライダー
-                    defaultEQSlider(value: sliderBinding, range: -40...40)
-                        .frame(width: 20, height: sliderHeight)
-
-                    // 周波数ラベル
-                    Text(eqBands[index] >= 1000 ?
-                         "\(eqBands[index]/1000, specifier: "%.1f") kHz" :
-                         "\(Int(eqBands[index])) Hz")
+                    let sliderBinding = Binding<Float>(
+                        get: { viewModel.eqValues[index] },
+                        set: { newValue in viewModel.updateEQ(at: index, value: newValue) }
+                    )
+                    
+                    VStack(spacing: 4) {
+                        // スライダー
+                        defaultEQSlider(value: sliderBinding, range: -40...40)
+                            .frame(width: 15, height: sliderHeight)
+                        
+                        // 周波数ラベル
+                        Text(eqBands[index] >= 1000 ?
+                             "\(eqBands[index]/1000, specifier: "%.1f") kHz" :
+                                "\(Int(eqBands[index])) Hz")
                         .font(.system(size: 8))
                         .foregroundColor(.white)
                         .frame(width: 60, height: labelHeight / 4)
                         .padding(.top, 10)
-
-                    // dBラベル
-                    Text(String(format: "%+05.1f dB", viewModel.eqValues[index]))
-                        .font(.system(size: 8, design: .monospaced))
-                        .foregroundColor(.white)
-                        .frame(width: 60, height: labelHeight / 4)
-
-                    // フィルター選択 Menu
-                    if let eqNode = viewModel.eqNode, eqNode.bands.indices.contains(index) {
-                        Menu {
-                            ForEach(AVAudioUnitEQFilterType.allFilterTypes, id: \.self) { type in
-                                Button {
-                                    eqNode.bands[index].filterType = type
-                                } label: {
-                                    Text(type.displayName).font(.system(size: 8))
+                        
+                        // dBラベル
+                        Text(String(format: "%+05.1f dB", viewModel.eqValues[index]))
+                            .font(.system(size: 8, design: .monospaced))
+                            .foregroundColor(.white)
+                            .frame(width: 60, height: labelHeight / 4)
+                        
+                        // フィルター選択 Menu
+                        if let eqNode = viewModel.eqNode, eqNode.bands.indices.contains(index) {
+                            Menu {
+                                ForEach(AVAudioUnitEQFilterType.allFilterTypes, id: \.self) { type in
+                                    Button {
+                                        eqNode.bands[index].filterType = type
+                                    } label: {
+                                        Text(type.displayName).font(.system(size: 8))
+                                    }
                                 }
+                            } label: {
+                                Text(eqNode.bands[index].filterType.displayName)
+                                    .font(.system(size: 8))
+                                    .foregroundColor(.gray)
+                                    .frame(width: 60, height: 20)
+                                    .background(Color(hex: "#2a2e2f"))
+                                    .cornerRadius(4)
+                                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color(hex: "#202425"), lineWidth: 1))
                             }
-                        } label: {
-                            Text(eqNode.bands[index].filterType.displayName)
+                        } else {
+                            Text("NONE")
                                 .font(.system(size: 8))
-                                .foregroundColor(.gray)
+                                .foregroundColor(.gray.opacity(0.5))
                                 .frame(width: 60, height: 20)
-                                .background(Color(hex: "#2a2e2f"))
-                                .cornerRadius(4)
-                                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color(hex: "#202425"), lineWidth: 1))
                         }
-                    } else {
-                        Text("NONE")
-                            .font(.system(size: 8))
-                            .foregroundColor(.gray.opacity(0.5))
-                            .frame(width: 60, height: 20)
                     }
+                    //                .frame(minHeight: sliderHeight + labelHeight + 30, alignment: .top) // ✅ 高さを確保して上揃え
+                    .frame(alignment: .top)
                 }
-//                .frame(minHeight: sliderHeight + labelHeight + 30, alignment: .top) // ✅ 高さを確保して上揃え
-                .frame(alignment: .top)
             }
         }
-        .frame(width: eqAreaWidth)
+        .padding(.leading, 10) // ← ここで余白を加える
+        .frame(width: eqAreaWidth - 10) // ← 全体の幅を調整して詰まりを防ぐ
     }
 
 
@@ -283,7 +397,7 @@ struct EQContainerView: View {
     private func gainSliderView(sliderHeight: CGFloat, labelHeight: CGFloat, gainSliderWidth: CGFloat) -> some View {
         VStack(spacing: 0.5) {
             defaultEQSlider(value: $viewModel.gain, range: 0...2)
-                .frame(width: 20, height: sliderHeight)
+                .frame(width: 15, height: sliderHeight)
 
             Text("Gain")
                 .font(.system(size: 8))
@@ -297,6 +411,7 @@ struct EQContainerView: View {
                 .frame(width: 60, height: labelHeight / 4)
         }
         .frame(width: gainSliderWidth, height: sliderHeight + labelHeight, alignment: .top) // 揃え
+        .padding(.leading, 20)
     }
 
     // MARK: - LEVEL

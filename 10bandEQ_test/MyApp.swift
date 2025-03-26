@@ -15,7 +15,7 @@ struct MyApp: App {
         WindowGroup {
             ContentView()
                 .statusBar(hidden: true) // ステータスバーを非表示
-                .previewInterfaceOrientation(.landscapeLeft) // プレビューも横向き
+//                .previewInterfaceOrientation(.landscapeLeft) // プレビューも横向き
         }
     }
 }

@@ -11,8 +11,8 @@ struct HeaderView: View {
             Image("logo")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(height: 40) // ✅ 高さを統一
-                .padding(.leading, 15)
+                .frame(height: 50) // ✅ 高さを統一
+                .padding(.leading, 10)
 
             Spacer()
 
@@ -22,12 +22,12 @@ struct HeaderView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(height: 40) // ✅ 同じ高さ
-                    .foregroundColor(.white)
+                    .foregroundColor(Color(hex: "#ccffff"))
             }
-            .padding(.trailing, 20)
+            .padding(.trailing, 10)
         }
         .padding(.top, 25)
-        .frame(height: 70)
+        .frame(height: 80)
         .background(Color(hex: "#1A1A1A"))
         .ignoresSafeArea(edges: .top)
     }
