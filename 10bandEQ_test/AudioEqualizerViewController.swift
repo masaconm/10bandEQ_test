@@ -130,6 +130,7 @@ class AudioEngineViewModel: ObservableObject {
     
     // MARK: - プロパティ定義
     @Published var currentLanguage: String = "English"
+    @Published var isLoadingWaveform: Bool = false
     
     // 10バンド EQ の周波数設定
     let eqBandsFrequencies: [Float] = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
@@ -723,8 +724,8 @@ struct SliderThumb: View {
 struct CustomVerticalSlider: View {
     @Binding var value: Float
     var range: ClosedRange<Float>
-    var thumbWidth: CGFloat = 40          // ✅ 横幅
-    var thumbHeight: CGFloat = 30         // ✅ 高さ
+    var thumbWidth: CGFloat = 40          // 横幅
+    var thumbHeight: CGFloat = 30         // 高さ
     var trackColor: Color = .black
     var fillColor: Color = .blue
     var thumbColor: Color = .white
@@ -775,4 +776,5 @@ struct CustomVerticalSlider: View {
                 .frame(width: 1024, height: 768)
         }
     }
+
 

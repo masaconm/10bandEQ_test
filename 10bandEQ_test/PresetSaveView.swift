@@ -10,6 +10,20 @@ struct PresetSaveView: View {
         NavigationView {
             VStack(spacing: 16) {
 
+                // ✅ カスタムヘッダー：左寄せタイトル＋右にキャンセルボタン
+                HStack {
+                    Text("Save Preset")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    Spacer()
+                    Button("Cancel") {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                    .foregroundColor(.white)
+                }
+                .padding(.horizontal)
+                .padding(.top)
+                
                 // MARK: - PRESET NAME 入力欄
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Preset Name")
@@ -54,6 +68,7 @@ struct PresetSaveView: View {
                     .foregroundColor(.white)
                     .padding(.top, 10)
                     .padding(.horizontal)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                 ScrollView {
                     VStack(spacing: 8) {
@@ -86,21 +101,7 @@ struct PresetSaveView: View {
                 Spacer(minLength: 10)
             }
             .background(Color(hex: "#393d40"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("Save Preset")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Cancel") {
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                    .foregroundColor(.white)
-                }
-            }
+            .navigationBarHidden(true) // ✅ デフォルトのナビゲーションバーを非表示に
         }
     }
 }
-

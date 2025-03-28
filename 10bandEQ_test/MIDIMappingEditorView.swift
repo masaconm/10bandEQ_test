@@ -12,12 +12,11 @@ import CoreMIDI
 extension MIDIEndpointRef {
     func getName() -> String? {
         var param: Unmanaged<CFString>?
-        if MIDIObjectGetStringProperty(self, kMIDIPropertyName, &param) == noErr {
-            return param?.takeRetainedValue() as String?
-        }
-        return nil
+        let status = MIDIObjectGetStringProperty(self, kMIDIPropertyDisplayName, &param)
+        return status == noErr ? param?.takeUnretainedValue() as String? : nil
     }
 }
+
 
 /// MIDI マッピングの一覧を表形式で表示し、各行をタップすると詳細編集画面へ遷移するビュー
 struct MIDIMappingEditorView: View {

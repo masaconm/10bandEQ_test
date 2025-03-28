@@ -82,119 +82,156 @@ struct MIDIMappingSettingsView: View {
         return options.sorted()
     }
     
+    private var sortedMappings: [MIDIMapping] {
+        expectedMappingNames.compactMap { name in
+            mappings.first(where: { $0.parameterName == name })
+        }
+    }
+    
     var body: some View {
+            
         NavigationView {
-            VStack(alignment: .leading) {
+            VStack(spacing: 0) {
+                //  カスタムヘッダー
+                HStack {
+                    Text("MIDI Mappings")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                    Spacer()
+                    Button("Cancel") {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                    .foregroundColor(.white)
+                }
+                .padding(.horizontal)
+                .padding(.top)
+                .padding(.bottom, 20)
+
+                //  接続デバイス表示
                 if !connectedControllers.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Connected device:")
                             .font(.headline)
+                            .foregroundColor(.white)
                         ForEach(connectedControllers, id: \.self) { controller in
                             Text(controller)
+                                .font(.subheadline)
+                                .foregroundColor(.white)
                         }
                     }
-                    .padding()
+                    .padding(.horizontal)
+                    .padding(.top, 10)
+                    .padding(.bottom, 30)
+                    .frame(maxWidth: .infinity, alignment: .leading) //  左寄せにする
                 } else {
-                    Text("No connected")
+                    Text("No connected device")
                         .foregroundColor(.red)
                         .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading) //  こちらも左寄せ
+                        .padding(.bottom, 20)
                 }
-                
+                    
+
+//// MIDIマッピング編集 リスト本体
+
+                //  見出し行（固定表示）
                 HStack {
                     Text("Name")
-                        .fontWeight(.bold)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Text("CC/Note")
-                        .fontWeight(.bold)
-                        .frame(maxWidth: .infinity, alignment: .center)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     Text("Status")
-                        .fontWeight(.bold)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                    Text("Edit CC/Note")
-                        .fontWeight(.bold)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text("Edit")
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding([.leading, .trailing, .top])
-                
-                List {
-                    Section {
-                        ForEach($mappings) { $mapping in
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(.white)
+                .padding(.vertical, 6)
+                .padding(.horizontal)
+                .background(Color(hex: "#2a2e2f"))
+//                .cornerRadius(6)
+
+                // スクロール可能なリスト（2行目以降）
+                ScrollView {
+                    VStack(spacing: 6) {
+                        ForEach(Array(sortedMappings.enumerated()), id: \.element.id) { index, mapping in
                             HStack {
                                 Text(mapping.parameterName)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                
-                                Group {
-                                    if mapping.midiCC >= 0 {
-                                        Text("CC \(mapping.midiCC)")
-                                    } else {
-                                        Text("None")
-                                    }
-                                }
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                
-                                Group {
-                                    if mapping.midiCC >= 0 {
-                                        Text("On")
-                                            .foregroundColor(.blue)
-                                    } else {
-                                        Text("Off")
-                                            .foregroundColor(.gray)
-                                    }
-                                }
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                
+                                    .foregroundColor(.white)
+
+                                Text(mapping.midiCC >= 0 ? "CC \(mapping.midiCC)" : "None")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .foregroundColor(.white)
+
+                                Text(mapping.midiCC >= 0 ? "On" : "Off")
+                                    .foregroundColor(mapping.midiCC >= 0 ? .green : .gray)
+                                    .fontWeight(.bold)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+
                                 Button("Edit") {
                                     editingMapping = mapping
                                     showEditOptions = true
                                 }
-                                .frame(maxWidth: .infinity, alignment: .trailing)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .foregroundColor(.white)
                             }
+                            .font(.system(size: 14))
+                            .padding(.vertical, 6)
+                            .padding(.horizontal)
+                            .background(index % 2 == 0 ? Color(hex: "#46484a") : Color(hex: "#46484a")) //  交互色
+//                            .cornerRadius(6)
                         }
-                        .onMove(perform: moveMapping)
                     }
                 }
-                .navigationTitle("MIDI Mappings")
-                .confirmationDialog("Select CC/Note", isPresented: $showEditOptions, titleVisibility: .visible) {
-                    Button("None") {
-                        candidateNewCC = -1
-                        showConfirmAlert = true
-                    }
-                    if let editingMapping = editingMapping {
-                        ForEach(pickerOptions(for: editingMapping), id: \.self) { cc in
-                            Button("CC \(cc)") {
-                                candidateNewCC = cc
-                                showConfirmAlert = true
-                            }
-                        }
-                    }
-                    Button("Cancel", role: .cancel) { }
-                }
-                .alert("Confirm change", isPresented: $showConfirmAlert, actions: {
-                    Button("OK") {
-                        if let mapping = editingMapping,
-                           let newCC = candidateNewCC,
-                           let index = mappings.firstIndex(where: { $0.id == mapping.id }) {
-                            mappings[index].midiCC = newCC
-                        }
-                        editingMapping = nil
-                        candidateNewCC = nil
-                    }
-                    Button("Cancel", role: .cancel) {
-                        editingMapping = nil
-                        candidateNewCC = nil
-                    }
-                }, message: {
-                    if let mapping = editingMapping, let newCC = candidateNewCC {
-                        Text("Change \(mapping.parameterName)'s CC from \(mapping.midiCC >= 0 ? "CC \(mapping.midiCC)" : "None") to \(newCC == -1 ? "None" : "CC \(newCC)")?")
-                    }
-                })
+                .background(Color(hex: "#393d40"))
+
+
+
+
             }
-            // onAppear 内の preset 適用ロジックは不要
+            .background(Color(hex: "#393d40"))
+            .navigationBarHidden(true)
+            .confirmationDialog("Select CC/Note", isPresented: $showEditOptions) {
+                Button("None") {
+                    candidateNewCC = -1
+                    showConfirmAlert = true
+                }
+                if let editingMapping = editingMapping {
+                    ForEach(pickerOptions(for: editingMapping), id: \.self) { cc in
+                        Button("CC \(cc)") {
+                            candidateNewCC = cc
+                            showConfirmAlert = true
+                        }
+                    }
+                }
+                Button("Cancel", role: .cancel) { }
+            }
+            .alert("Confirm change", isPresented: $showConfirmAlert, actions: {
+                Button("OK") {
+                    if let mapping = editingMapping,
+                       let newCC = candidateNewCC,
+                       let index = mappings.firstIndex(where: { $0.id == mapping.id }) {
+                        mappings[index].midiCC = newCC
+                    }
+                    editingMapping = nil
+                    candidateNewCC = nil
+                }
+                Button("Cancel", role: .cancel) {
+                    editingMapping = nil
+                    candidateNewCC = nil
+                }
+            }, message: {
+                if let mapping = editingMapping, let newCC = candidateNewCC {
+                    Text("Change \(mapping.parameterName)'s CC from \(mapping.midiCC >= 0 ? "CC \(mapping.midiCC)" : "None") to \(newCC == -1 ? "None" : "CC \(newCC)")?")
+                }
+            })
+        }
         }
     }
-    
-    func moveMapping(from source: IndexSet, to destination: Int) {
-        mappings.move(fromOffsets: source, toOffset: destination)
-    }
-}
+
+
+
+
 

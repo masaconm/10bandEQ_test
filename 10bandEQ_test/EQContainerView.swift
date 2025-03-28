@@ -11,6 +11,9 @@ struct EQContainerView: View {
     @State private var isFlatButtonPressed = false
     @State private var isSaveButtonPressed = false
     @State private var isLoadButtonPressed = false
+    @State private var isPickerButtonPressed = false
+    @State private var isPlaylistButtonPressed = false
+
     
     private var eqBands: [Float] {
         viewModel.eqBandsFrequencies
@@ -22,7 +25,7 @@ struct EQContainerView: View {
 
             VStack(spacing: 10) {
                 // MARK: - EQ & ボタン列（3列構成）
-                HStack(spacing: 10) {
+                HStack(alignment: .top, spacing: 10) {
                     
                     // MARK: 左：操作ボタン列
                     // HI / MID / LOW
@@ -89,28 +92,28 @@ struct EQContainerView: View {
                         
                         // 録音・再生ボタン
                         VStack(spacing: 8) {
-                            // 録音
-                            Button(action: { isRecording.toggle() }) {
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 4)
-                                        .fill(isRecording ? Color(hex: "#d82c19") : Color(hex: "#292b2a")) // 背景色切り替え
-                                        .frame(width: 60, height: 60)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 4)
-                                                .stroke(Color(hex: "#202425"), lineWidth: 1)
-                                        )
-                                        .shadow(
-                                            color: isRecording ? Color(hex: "#d82c19").opacity(0.8) : .clear,
-                                            radius: isRecording ? 12 : 0
-                                        )
-                                    
-                                    Image(systemName: "record.circle")
-                                        .resizable()
-                                        .frame(width: 30, height: 30)
-                                        .foregroundColor(Color(hex: "#ccffff")) // 常に同じ色
-                                }
-                            }
-                            .buttonStyle(PlainButtonStyle())
+//                            // 録音 これから実装20250328
+//                            Button(action: { isRecording.toggle() }) {
+//                                ZStack {
+//                                    RoundedRectangle(cornerRadius: 4)
+//                                        .fill(isRecording ? Color(hex: "#d82c19") : Color(hex: "#292b2a")) // 背景色切り替え
+//                                        .frame(width: 60, height: 60)
+//                                        .overlay(
+//                                            RoundedRectangle(cornerRadius: 4)
+//                                                .stroke(Color(hex: "#202425"), lineWidth: 1)
+//                                        )
+//                                        .shadow(
+//                                            color: isRecording ? Color(hex: "#d82c19").opacity(0.8) : .clear,
+//                                            radius: isRecording ? 12 : 0
+//                                        )
+//                                    
+//                                    Image(systemName: "record.circle")
+//                                        .resizable()
+//                                        .frame(width: 30, height: 30)
+//                                        .foregroundColor(Color(hex: "#ccffff")) // 常に同じ色
+//                                }
+//                            }
+//                            .buttonStyle(PlainButtonStyle())
                             
                             // 再生
                             Button(action: {
@@ -136,6 +139,8 @@ struct EQContainerView: View {
                                 }
                             }
                             .buttonStyle(PlainButtonStyle())
+                            .disabled(viewModel.isLoadingWaveform || viewModel.sampleBuffer == nil)
+
                             
                         }
                     }
@@ -143,6 +148,8 @@ struct EQContainerView: View {
                     .frame(width: 80, height: contentHeight, alignment: .top)
                     .background(Color(hex: "#19191b"))
                     .cornerRadius(8)
+                    .padding(.trailing, 10) // 右外側に間隔を追加
+
                     
                     // MARK: 中央：EQ + GAIN + LEVEL（幅拡張）
                     HStack(alignment: .top, spacing: 20) {
@@ -170,17 +177,17 @@ struct EQContainerView: View {
                     
                     
                     
-                    // MARK: 右：3カラム目全体
+                    // MARK: 右カラム（Preset + Extra Panel）
                     VStack(spacing: 8) {
                         
-                        // 上部：Preset ラベル + Save / Load ボタンを囲む枠
+                        // Preset枠
                         VStack(spacing: 8) {
-                            Text("Preset")
+                            Text("EQ Set")
                                 .padding(.top, 12)
-                                .foregroundColor(Color(hex: "#ccffff"))
-                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+                                .font(.system(size: 12, weight: .bold))
 
-                            // Save ボタン
+                            // SAVE
                             Button(action: {
                                 activeSheet = .savePreset
                             }) {
@@ -208,7 +215,7 @@ struct EQContainerView: View {
                                     .onEnded { _ in isSaveButtonPressed = false }
                             )
 
-                            // Load ボタン
+                            // LOAD
                             Button(action: {
                                 activeSheet = .loadPreset
                             }) {
@@ -236,63 +243,99 @@ struct EQContainerView: View {
                                     .onEnded { _ in isLoadButtonPressed = false }
                             )
                         }
-                        .padding(8)
+                        .padding(10)
+                        .frame(maxWidth: .infinity)
                         .background(Color(hex: "#19191b"))
                         .cornerRadius(8)
 
-                        // 下部：Extra Panel（3ボタン入り）
+                        // Extra Panel 枠（Select Audio File / Playlist = 画像ボタン、MIDI Mapping = テキストボタン）
                         VStack(spacing: 8) {
-                            ForEach(["OPTION 1", "OPTION 2", "OPTION 3"], id: \.self) { label in
-                                Button(action: {
-                                    print("\(label) tapped") // ← 必要に応じてアクション追加
-                                }) {
-                                    Text(label)
-                                        .font(.system(size: 16, weight: .heavy))
-                                        .foregroundColor(Color(hex: "#ccffff"))
-                                        .frame(width: 60, height: 60)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 4)
-                                                .fill(Color(hex: "#212224"))
-                                        )
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 4)
-                                                .stroke(Color(hex: "#202425"), lineWidth: 1)
-                                        )
-                                }
-                                .buttonStyle(PlainButtonStyle())
+                            // Select Audio File → アイコンボタン
+//                            Button(action: {
+//                                activeSheet = .picker
+//                            }) {
+//                                Image("list_icon")
+//                                    .presetStyleImageButton()
+//                            }
+                            Button(action: {
+                                activeSheet = .picker
+                            }) {
+                                Image("list_icon")
+                                    .resizable()
+                                    .renderingMode(.template) // ← アイコンの色を変更可能にする
+                                    .frame(width: 30, height: 30) //  アイコンサイズ調整（小さめ）
+                                    .foregroundColor(isPickerButtonPressed ? .black : Color(hex: "#ccffff")) //  タップ時色変更
+                                    .frame(width: 60, height: 60) //  ボタンの全体サイズ
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(isPickerButtonPressed ? Color(hex: "#ccffff") : Color(hex: "#212224"))
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .stroke(Color(hex: "#202425"), lineWidth: 1)
+                                    )
+                                    .shadow(
+                                        color: isPickerButtonPressed ? Color(hex: "#ccffff").opacity(0.8) : .clear,
+                                        radius: isPickerButtonPressed ? 10 : 0
+                                    )
                             }
+                            .buttonStyle(PlainButtonStyle())
+                            .simultaneousGesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged { _ in isPickerButtonPressed = true }
+                                    .onEnded { _ in isPickerButtonPressed = false }
+                            )
 
-                            Spacer() // 下に余白を残す
+
+                            // Playlist → アイコンボタン
+//                            Button(action: {
+//                                activeSheet = .playlist
+//                            }) {
+//                                Image("select_music")
+//                                    .presetStyleImageButton()
+//                            }
+                            Button(action: {
+                                activeSheet = .playlist
+                            }) {
+                                Image("select_music")
+                                    .resizable()
+                                    .renderingMode(.template)
+                                    .frame(width: 30, height: 30)
+                                    .foregroundColor(isPlaylistButtonPressed ? .black : Color(hex: "#ccffff"))
+                                    .frame(width: 60, height: 60)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(isPlaylistButtonPressed ? Color(hex: "#ccffff") : Color(hex: "#212224"))
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .stroke(Color(hex: "#202425"), lineWidth: 1)
+                                    )
+                                    .shadow(
+                                        color: isPlaylistButtonPressed ? Color(hex: "#ccffff").opacity(0.8) : .clear,
+                                        radius: isPlaylistButtonPressed ? 10 : 0
+                                    )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .simultaneousGesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged { _ in isPlaylistButtonPressed = true }
+                                    .onEnded { _ in isPlaylistButtonPressed = false }
+                            )
+
+
+                            Spacer()
                         }
-                        .padding(8)
-                        .background(Color(hex: "#1e1e1e"))
+                        .padding(10)
+                        .frame(maxWidth: .infinity)
+                        .background(Color(hex: "#19191b"))
                         .cornerRadius(8)
-
-
                     }
                     .frame(width: 65, height: contentHeight)
+                    .padding(.leading, 15) //  左外側に余白を追加
 
                 }
-
-                // MARK: 下部操作列
-                HStack(spacing: 12) {
-                    Button("Select Audio File") {
-                        activeSheet = .picker
-                    }.customBottomButton()
-
-                    Button("Playlist") {
-                        activeSheet = .playlist
-                    }.customBottomButton()
-
-                    Button("MIDI Mapping") {
-                        activeSheet = .midiMapping
-                    }.customBottomButton()
-                }
-                .padding(.bottom, 12)
             }
-            .padding(.horizontal, 10)
-            .padding(.top, 10)
-            .background(Color.black.opacity(0.2))
         }
     }
 
@@ -383,7 +426,6 @@ struct EQContainerView: View {
                                 .frame(width: 60, height: 20)
                         }
                     }
-                    //                .frame(minHeight: sliderHeight + labelHeight + 30, alignment: .top) // ✅ 高さを確保して上揃え
                     .frame(alignment: .top)
                 }
             }
