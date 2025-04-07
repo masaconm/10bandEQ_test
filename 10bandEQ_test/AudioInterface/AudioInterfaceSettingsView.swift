@@ -7,7 +7,7 @@ struct AudioInterfaceSettingsView: View {
     @State private var showingErrorAlert = false
     @State private var errorMessage = ""
     @Environment(\.presentationMode) var presentationMode
-
+    
     var body: some View {
         VStack(spacing: 0) {
             // カスタムヘッダー
@@ -23,7 +23,7 @@ struct AudioInterfaceSettingsView: View {
             }
             .padding(.horizontal)
             .padding(.top)
-
+            
             // 出力デバイス一覧表示（見出し＋リスト）
             VStack(alignment: .leading, spacing: 4) {
                 Text("Output device")
@@ -32,7 +32,7 @@ struct AudioInterfaceSettingsView: View {
                     .foregroundColor(.white)
                     .padding(.bottom, 30)
                     .padding(.leading, 15)
-
+                
                 ForEach(currentOutputs, id: \.uid) { output in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(output.portName) // 例: "Sony WH-1000XM4"
@@ -49,14 +49,14 @@ struct AudioInterfaceSettingsView: View {
             .frame(maxWidth: .infinity, alignment: .leading) // これを追加
             .padding(.top, 20)
             .padding(.horizontal) // 全体の左揃えとスペーシングに対してのみ適用
-
-
+            
+            
             // 入力デバイス一覧
             List {
                 Section(header:
-                    Text("Input device")
-                        .font(.system(size: 16, weight: .bold)) // 見出し調整
-                        .foregroundColor(.white)
+                            Text("Input device")
+                    .font(.system(size: 16, weight: .bold)) // 見出し調整
+                    .foregroundColor(.white)
                 ) {
                     if availableInputs.isEmpty {
                         Text("No input available")
@@ -68,12 +68,12 @@ struct AudioInterfaceSettingsView: View {
                                     Text(input.portName)
                                         .font(.system(size: 16)) // 機器名調整
                                         .foregroundColor(.white)
-
+                                    
                                     Text(isCurrentInput(input) ? "Selected" : "Not Selected")
                                         .font(.footnote)
                                         .foregroundColor(isCurrentInput(input) ? .green : .gray)
                                 }
-
+                                
                             }
                             .contentShape(Rectangle())
                             .onTapGesture {
@@ -87,12 +87,12 @@ struct AudioInterfaceSettingsView: View {
                     }
                 }
             }
-
+            
             .listStyle(PlainListStyle())
             .background(Color(hex: "#393d40"))
             .scrollContentBackground(.hidden)
             .padding(.horizontal)
-
+            
             // Updateボタン
             Button("Update") {
                 loadDevices()
@@ -105,7 +105,7 @@ struct AudioInterfaceSettingsView: View {
             .cornerRadius(6)
             .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
             .padding()
-
+            
             Spacer()
         }
         .background(Color(hex: "#393d40"))
@@ -125,12 +125,12 @@ struct AudioInterfaceSettingsView: View {
                   dismissButton: .default(Text("OK")))
         }
     }
-
+    
     private var currentOutputs: [AVAudioSessionPortDescription] {
         let session = AVAudioSession.sharedInstance()
         return session.currentRoute.outputs
     }
-
+    
     private func portTypeDescription(_ portType: AVAudioSession.Port) -> String {
         switch portType {
         case .builtInMic: return "Built-in Microphone"
@@ -144,32 +144,32 @@ struct AudioInterfaceSettingsView: View {
         default: return portType.rawValue
         }
     }
-
+    
     private func isCurrentInput(_ input: AVAudioSessionPortDescription) -> Bool {
         let session = AVAudioSession.sharedInstance()
         return session.currentRoute.inputs.contains(where: { $0.uid == input.uid })
     }
-
+    
     private func loadDevices() {
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.playAndRecord, mode: .default, options: [.allowBluetooth, .allowBluetoothA2DP, .defaultToSpeaker])
             try session.setActive(true)
-
+            
             availableInputs = session.availableInputs?.filter {
                 $0.portType == .builtInMic ||
                 $0.portType == .bluetoothHFP ||
                 $0.portType == .usbAudio ||
                 $0.portType == .carAudio
             } ?? []
-
+            
             selectedInput = session.preferredInput
         } catch {
             errorMessage = "Failed to set up audio session: \(error.localizedDescription)"
             showingErrorAlert = true
         }
     }
-
+    
     private func setPreferredInput(_ input: AVAudioSessionPortDescription) {
         let session = AVAudioSession.sharedInstance()
         do {
@@ -182,4 +182,3 @@ struct AudioInterfaceSettingsView: View {
         }
     }
 }
-

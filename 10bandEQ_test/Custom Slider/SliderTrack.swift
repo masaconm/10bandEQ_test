@@ -13,7 +13,7 @@ struct SliderTrack: View {
     var height: CGFloat           // ✅ トラック全体の高さ（追加）
     var trackColor: Color = .black
     var fillColor: Color = .blue
-
+    
     var body: some View {
         ZStack(alignment: .bottom) {
             // トラック背景
@@ -27,7 +27,7 @@ struct SliderTrack: View {
                     offsetY: 5,
                     opacity: 1.0
                 )
-
+            
             // 塗り（値に応じて変化）
             RoundedRectangle(cornerRadius: 4)
                 .fill(fillColor)

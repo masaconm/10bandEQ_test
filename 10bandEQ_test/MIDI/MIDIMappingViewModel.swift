@@ -76,5 +76,3 @@ class MIDIMappingViewModel: ObservableObject {
         midiTimer?.cancel()
     }
 }
-
-

@@ -5,11 +5,11 @@ struct PresetSaveView: View {
     @Environment(\.presentationMode) var presentationMode
     @ObservedObject var viewModel: AudioEngineViewModel
     @State private var presetName: String = ""
-
+    
     var body: some View {
         NavigationView {
             VStack(spacing: 16) {
-
+                
                 // ✅ カスタムヘッダー：左寄せタイトル＋右にキャンセルボタン
                 HStack {
                     Text("Save Preset")
@@ -61,7 +61,7 @@ struct PresetSaveView: View {
                         .shadow(color: .black.opacity(0.4), radius: 4, x: 0, y: 2)
                 }
                 .padding(.horizontal)
-
+                
                 // MARK: - CURRENT EQ SETTINGS（スクロール可能）
                 Text("Current EQ Settings")
                     .font(.subheadline)
@@ -69,7 +69,7 @@ struct PresetSaveView: View {
                     .padding(.top, 10)
                     .padding(.horizontal)
                     .frame(maxWidth: .infinity, alignment: .leading)
-
+                
                 ScrollView {
                     VStack(spacing: 8) {
                         ForEach(0..<viewModel.eqBandsFrequencies.count, id: \.self) { index in
@@ -78,13 +78,13 @@ struct PresetSaveView: View {
                                     .frame(width: 60, alignment: .leading)
                                     .font(.system(size: 13))
                                     .foregroundColor(.white)
-
+                                
                                 Text(String(format: "%+05.1f dB", viewModel.eqValues[index]))
                                     .font(.system(size: 13, design: .monospaced))
                                     .foregroundColor(.white)
-
+                                
                                 Spacer()
-
+                                
                                 Text(viewModel.eqNode.bands[index].filterType.displayName)
                                     .font(.system(size: 12))
                                     .foregroundColor(.white)
@@ -97,7 +97,7 @@ struct PresetSaveView: View {
                     }
                     .padding(.horizontal)
                 }
-
+                
                 Spacer(minLength: 10)
             }
             .background(Color(hex: "#393d40"))

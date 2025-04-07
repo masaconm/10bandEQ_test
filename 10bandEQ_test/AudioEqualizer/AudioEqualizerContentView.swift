@@ -10,21 +10,25 @@ struct AudioEqualizerContentView: View {
     @StateObject var viewModel = AudioEngineViewModel()
     @State private var zoomScale: CGFloat = 1.0
     @State private var activeSheet: ActiveSheet? = nil
-
+    @State private var isLowActive = false
+    @State private var isMidActive = false
+    @State private var isHighActive = false
+    
+    
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-
+            
             VStack(spacing: 0) {
                 // ヘッダーを最上部に固定し、SafeArea分の余白を追加
                 HeaderView(
                     settingsAction: { activeSheet = .settings },
                     midiMappingAction: { activeSheet = .midiMapping }
                 )
-//                .padding(.top, safeAreaTopInset())
+                //                .padding(.top, safeAreaTopInset())
                 .frame(height: 80)
                 .background(Color(hex: "#1A1A1A"))
-
+                
                 // ファイル情報 + 波形エリア
                 VStack(spacing: 0) {
                     VStack(alignment: .leading, spacing: 4) {
@@ -49,37 +53,13 @@ struct AudioEqualizerContentView: View {
                         let containerWidth = geo.size.width
                         let containerHeight = geo.size.height
                         let padding: CGFloat = 10
-
+                        
                         let usableWidth = containerWidth - padding * 2
                         let waveformWidth = usableWidth * zoomScale
                         let playbackX = CGFloat(viewModel.playbackProgress) * waveformWidth
                         let offsetX: CGFloat = waveformWidth > usableWidth ? (usableWidth / 2 - playbackX) : 0
                         let redBarX: CGFloat = waveformWidth > usableWidth ? (usableWidth / 2 + padding) : (playbackX + padding)
-
-//                        ZStack {
-//                            ScrollView(.horizontal, showsIndicators: false) {
-//                                if let sampleBuffer = viewModel.sampleBuffer {
-//                                    SmoothWaveformView(
-//                                        sampleBuffer: sampleBuffer,
-//                                        playbackProgress: viewModel.playbackProgress,
-//                                        zoomScale: zoomScale
-//                                    )
-//                                    .frame(width: waveformWidth, height: containerHeight)
-//                                    .offset(x: offsetX)
-//                                } else {
-//                                    Text("Audio file not loaded")
-//                                        .foregroundColor(.white)
-//                                        .frame(width: usableWidth, height: containerHeight)
-//                                        .background(Color(hex: "#19191b"))
-//                                }
-//                            }
-//                            .padding(.horizontal, padding)
-//
-//                            Rectangle()
-//                                .fill(Color.red)
-//                                .frame(width: 2, height: containerHeight)
-//                                .position(x: redBarX, y: containerHeight / 2)
-//                        }
+                        
                         ZStack {
                             if viewModel.isLoadingWaveform {
                                 Text("Loading...")
@@ -104,28 +84,28 @@ struct AudioEqualizerContentView: View {
                                             .background(Color(hex: "#19191b"))
                                     }
                                 }
-
+                                
                                 Rectangle()
                                     .fill(Color.red)
                                     .frame(width: 2, height: containerHeight)
                                     .position(x: redBarX, y: containerHeight / 2)
                             }
                         }
-
+                        
                         .contentShape(Rectangle())
                         .gesture(
                             DragGesture(minimumDistance: 0)
                                 .onChanged { value in
                                     viewModel.isSeeking = true
                                     let newProgress = waveformWidth > usableWidth
-                                        ? clamp(Double(value.location.x - offsetX - padding) / Double(waveformWidth), 0.0, 1.0)
-                                        : clamp(Double(value.location.x - padding) / Double(usableWidth), 0.0, 1.0)
+                                    ? clamp(Double(value.location.x - offsetX - padding) / Double(waveformWidth), 0.0, 1.0)
+                                    : clamp(Double(value.location.x - padding) / Double(usableWidth), 0.0, 1.0)
                                     viewModel.playbackProgress = newProgress
                                 }
                                 .onEnded { value in
                                     let newProgress = waveformWidth > usableWidth
-                                        ? clamp(Double(value.location.x - offsetX - padding) / Double(waveformWidth), 0.0, 1.0)
-                                        : clamp(Double(value.location.x - padding) / Double(usableWidth), 0.0, 1.0)
+                                    ? clamp(Double(value.location.x - offsetX - padding) / Double(waveformWidth), 0.0, 1.0)
+                                    : clamp(Double(value.location.x - padding) / Double(usableWidth), 0.0, 1.0)
                                     viewModel.playbackProgress = newProgress
                                     if let file = viewModel.audioFile {
                                         viewModel.pausedFrame = AVAudioFramePosition(newProgress * Double(file.length))
@@ -140,18 +120,18 @@ struct AudioEqualizerContentView: View {
                         // .simultaneousGesture(...) 削除済み
                     }
                     .frame(height: 150)
-
+                    
                 }
                 .background(Color(hex: "#19191b"))
                 .cornerRadius(8)
                 .padding(.horizontal)
                 .padding(.top, 8)
                 .padding(.bottom, 20)
-
+                
                 EQContainerView(viewModel: viewModel, activeSheet: $activeSheet)
                     .padding(.horizontal)
                     .frame(height: 550)
-
+                
                 Spacer()
             }
         }
@@ -162,7 +142,7 @@ struct AudioEqualizerContentView: View {
                 }
             }
         }
-
+        
         
         .sheet(item: Binding(
             get: { activeSheet != .picker ? activeSheet : nil },
@@ -191,7 +171,7 @@ struct AudioEqualizerContentView: View {
             }
         }
     }
-
+    
     /// SafeAreaトップの高さを取得（iOS 15以降の推奨スタイル）
     private func safeAreaTopInset() -> CGFloat {
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
@@ -201,4 +181,3 @@ struct AudioEqualizerContentView: View {
         return 20
     }
 }
-

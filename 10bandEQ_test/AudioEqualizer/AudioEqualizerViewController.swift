@@ -31,14 +31,14 @@ struct EQPreset: Identifiable, Codable {
     var name: String
     var eqValues: [Float]
     var filterTypeRawValues: [Int]?
-
+    
     init(name: String, eqValues: [Float], filterTypes: [AVAudioUnitEQFilterType]? = nil) {
         self.id = UUID()
         self.name = name
         self.eqValues = eqValues
         self.filterTypeRawValues = filterTypes?.map { $0.rawValue }
     }
-
+    
     var filterTypes: [AVAudioUnitEQFilterType]? {
         filterTypeRawValues?.compactMap { AVAudioUnitEQFilterType(rawValue: $0) }
     }
@@ -162,66 +162,93 @@ class AudioEngineViewModel: ObservableObject {
     // MARK: - プリセット適用 + 各バンドのbypass制御
     func applyPresetWithBypass(_ preset: EQPreset) {
         eqValues = preset.eqValues
-
+        
         for (index, value) in preset.eqValues.enumerated() {
             guard eqNode.bands.indices.contains(index) else { continue }
             let band = eqNode.bands[index]
-
+            
             // 値を適用
             band.gain = value
-
+            
             // フィルタータイプを適用（あれば）
             if let types = preset.filterTypes, types.indices.contains(index) {
                 band.filterType = types[index]
             }
-
+            
             // バイパス処理：0dBは完全スルー
             band.bypass = (value == 0)
         }
     }
     // MARK: - 「HI / MID / LOW ボタンを押したときに、それ以外の帯域を完全に切りたい（バイパス or カット）」
     //プリセットとは別に、それぞれ専用の切り替え関数を用意
+    //既存では単一選択
+    //    func applyBandOnly(_ band: String) {
+    //        for (index, bandNode) in eqNode.bands.enumerated() {
+    //            bandNode.filterType = .parametric
+    //
+    //            // 初期化（バンドを "切る"）
+    //            bandNode.gain = -40
+    //            bandNode.bypass = false
+    //
+    //            switch band {
+    //            case "LOW" where index <= 2:
+    //                bandNode.gain = 6
+    //                bandNode.filterType = .lowShelf
+    //            case "MID" where index >= 3 && index <= 6:
+    //                bandNode.gain = 5
+    //            case "HI" where index >= 7:
+    //                bandNode.gain = 6
+    //                bandNode.filterType = .highShelf
+    //            default:
+    //                break
+    //            }
+    //
+    //            // UI側にも反映
+    //            if eqValues.indices.contains(index) {
+    //                eqValues[index] = bandNode.gain
+    //            }
+    //        }
+    //    }
     
-    func applyBandOnly(_ band: String) {
+    //20250407 更新テスト
+    // 複数バンド選択に対応した関数
+    func applySelectedBands(low: Bool, mid: Bool, high: Bool) {
         for (index, bandNode) in eqNode.bands.enumerated() {
             bandNode.filterType = .parametric
-
-            // 初期化（バンドを "切る"）
             bandNode.gain = -40
             bandNode.bypass = false
-
-            switch band {
-            case "LOW" where index <= 2:
+            
+            if low && index <= 2 {
                 bandNode.gain = 6
                 bandNode.filterType = .lowShelf
-            case "MID" where index >= 3 && index <= 6:
+            } else if mid && (3...6).contains(index) {
                 bandNode.gain = 5
-            case "HI" where index >= 7:
+            } else if high && index >= 7 {
                 bandNode.gain = 6
                 bandNode.filterType = .highShelf
-            default:
-                break
             }
-
-            // UI側にも反映
+            
             if eqValues.indices.contains(index) {
                 eqValues[index] = bandNode.gain
             }
         }
     }
+    
+    
+    
     // MARK: - Default ボタンを追加（すべて0dBに戻し、バイパスOFF）
     func resetEQToDefault() {
         for (index, band) in eqNode.bands.enumerated() {
             band.gain = 0
             band.bypass = false
             band.filterType = .parametric
-
+            
             if eqValues.indices.contains(index) {
                 eqValues[index] = 0
             }
         }
     }
-
+    
     
     // 組み込みプリセットおよびユーザープリセット（EQ設定）
     @Published var defaultPresets: [EQPreset] = [
@@ -311,13 +338,13 @@ class AudioEngineViewModel: ObservableObject {
         }
         
         // 20250322 録音した音声をPlaylistへ追加
-            NotificationCenter.default.addObserver(forName: .newRecordingFinished, object: nil, queue: .main) { [weak self] notification in
-                guard let self = self else { return }
-                if let url = notification.object as? URL {
-                    print("📥 通知で受け取った録音ファイル: \(url.lastPathComponent)")
-                    self.addAudioFileToPlaylist(url: url)
-                }
+        NotificationCenter.default.addObserver(forName: .newRecordingFinished, object: nil, queue: .main) { [weak self] notification in
+            guard let self = self else { return }
+            if let url = notification.object as? URL {
+                print("📥 通知で受け取った録音ファイル: \(url.lastPathComponent)")
+                self.addAudioFileToPlaylist(url: url)
             }
+        }
     }
     
     // MARK: - Audio Engine の初期化処理
@@ -358,13 +385,13 @@ class AudioEngineViewModel: ObservableObject {
     // MARK: - EQ 更新処理
     func updateEQ(at index: Int, value: Float) {
         eqValues[index] = value
-
+        
         if eqNode.bands.indices.contains(index) {
             eqNode.bands[index].gain = value
             eqNode.bands[index].bypass = false // スライダー操作時はバイパス解除！
         }
     }
-
+    
     
     // MARK: - レベル更新処理
     func updateLevel(from buffer: AVAudioPCMBuffer) {
@@ -523,14 +550,14 @@ class AudioEngineViewModel: ObservableObject {
     }
     
     // MARK: - EQプリセット管理
-
+    
     func savePreset(with name: String) {
         let filterTypes = eqNode.bands.map { $0.filterType }
         let newPreset = EQPreset(name: name, eqValues: eqValues, filterTypes: filterTypes)
         userPresets.append(newPreset)
         saveUserPresetsToDefaults()
     }
-
+    
     
     func applyPreset(_ preset: EQPreset) {
         eqValues = preset.eqValues
@@ -641,33 +668,88 @@ extension Path {
 }
 
 // MARK: - LevelMeterViewSwiftUI (新デザイン)
-// 【仕様】
+// 【旧仕様】
 // 下から上にしきい値ごとに色を積み上げる表示
+//struct LevelMeterViewSwiftUI: View {
+//    var level: Float  // 現在の dB 値
+//    // しきい値とそれに対応する色（上に行くほど dB 値が大きい＝音が大きい）
+//    let thresholds: [(lkfs: Float, color: Color)] = [
+//        (0, .red),
+//        (-3, .red),
+//        (-6, .red),
+//        (-9, .orange),
+//        (-18, .orange),
+//        (-23, .yellow),
+//        (-27, .yellow),
+//        (-36, .green),
+//        (-45, .green),
+//        (-54, .green),
+//        (-64, .green)
+//    ]
+//    var body: some View {
+//        GeometryReader { geo in
+//            let maxHeight = geo.size.height
+//            let sectionHeight = maxHeight / CGFloat(thresholds.count)
+//            VStack(spacing: 0) {
+//                // thresholds を下から上に積み上げる
+//                ForEach(thresholds, id: \.lkfs) { threshold in
+//                    Rectangle()
+//                        .fill(level > threshold.lkfs ? threshold.color : Color.clear)
+//                        .frame(height: sectionHeight)
+//                }
+//            }
+//            .frame(maxHeight: .infinity, alignment: .bottom)
+//            .background(Color.black)
+//        }
+//    }
+//}
+
+//20250407 積み上げバーにグラデーションを追加
 struct LevelMeterViewSwiftUI: View {
     var level: Float  // 現在の dB 値
-    // しきい値とそれに対応する色（上に行くほど dB 値が大きい＝音が大きい）
+    
+    // しきい値と、それに対応するカラー（LED風に滑らか）
     let thresholds: [(lkfs: Float, color: Color)] = [
         (0, .red),
         (-3, .red),
-        (-6, .red),
+        (-6, .orange),   // ← 赤からオレンジに変化
         (-9, .orange),
-        (-18, .orange),
+        (-18, .yellow),  // ← オレンジから黄色に変化
         (-23, .yellow),
-        (-27, .yellow),
+        (-27, .green),   // ← 黄色から緑に変化
         (-36, .green),
         (-45, .green),
         (-54, .green),
         (-64, .green)
     ]
+    
+    
     var body: some View {
         GeometryReader { geo in
             let maxHeight = geo.size.height
             let sectionHeight = maxHeight / CGFloat(thresholds.count)
+            
             VStack(spacing: 0) {
-                // thresholds を下から上に積み上げる
-                ForEach(thresholds, id: \.lkfs) { threshold in
+                ForEach(0..<thresholds.count, id: \.self) { i in
+                    let current = thresholds[i]
+                    let next = i < thresholds.count - 1 ? thresholds[i + 1] : current
+                    
                     Rectangle()
-                        .fill(level > threshold.lkfs ? threshold.color : Color.clear)
+                        .fill(
+                            level > current.lkfs
+                            ? (
+                                current.color != next.color
+                                ? AnyShapeStyle(
+                                    LinearGradient(
+                                        gradient: Gradient(colors: [current.color, next.color]),
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
+                                : AnyShapeStyle(current.color)
+                            )
+                            : AnyShapeStyle(Color.clear)
+                        )
                         .frame(height: sectionHeight)
                 }
             }
@@ -675,41 +757,25 @@ struct LevelMeterViewSwiftUI: View {
             .background(Color.black)
         }
     }
+    
+    
 }
 
 // MARK: - Custom Slider Components
-/// スライダートラック：背景と充填部分を表示
-//struct SliderTrack: View {
-//    var percentage: CGFloat       // 充填部分の高さ（スライダーの値に基づく）
-//    var width: CGFloat            // トラックの横幅
-//    var trackColor: Color = .gray
-//    var fillColor: Color = .blue
-//    var body: some View {
-//        ZStack(alignment: .bottom) {
-//            Rectangle()
-//                .fill(trackColor)
-//                .frame(width: width)
-//            Rectangle()
-//                .fill(fillColor)
-//                .frame(width: width, height: percentage)
-//        }
-//    }
-//}
-
-// MARK: -つまみ部分：固定サイズの正方形
+//-つまみ部分：固定サイズの正方形
 struct SliderThumb: View {
     var thumbWidth: CGFloat = 50
     var thumbHeight: CGFloat = 30
     var thumbColor: Color = Color(hex: "#363739")
-
+    
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 4)
                 .fill(thumbColor)
-
+            
             RoundedRectangle(cornerRadius: 4)
                 .stroke(Color(hex: "#1f2022"), lineWidth: 2)
-
+            
             Rectangle()
                 .fill(Color(hex: "#858585"))
                 .frame(width: thumbWidth * 0.6, height: 2) // ✅ 横線！
@@ -729,7 +795,7 @@ struct CustomVerticalSlider: View {
     var trackColor: Color = .black
     var fillColor: Color = .blue
     var thumbColor: Color = .white
-
+    
     var body: some View {
         GeometryReader { geo in
             let height = geo.size.height
@@ -737,7 +803,7 @@ struct CustomVerticalSlider: View {
             let percentage = CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound))
             let fillHeight = height * percentage
             let thumbY = height * (1 - percentage)
-
+            
             ZStack {
                 SliderTrack(
                     percentage: fillHeight,
@@ -746,7 +812,7 @@ struct CustomVerticalSlider: View {
                     trackColor: trackColor,
                     fillColor: fillColor
                 )
-
+                
                 SliderThumb(
                     thumbWidth: thumbWidth,
                     thumbHeight: thumbHeight,
@@ -768,13 +834,11 @@ struct CustomVerticalSlider: View {
 }
 
 //    // MARK: - Preview
-    struct AudioEqualizerContentView_Previews: PreviewProvider {
-        static var previews: some View {
-            AudioEqualizerContentView()
-                .environmentObject(AudioEngineViewModel())
-                .previewInterfaceOrientation(.landscapeLeft)
-                .frame(width: 1024, height: 768)
-        }
+struct AudioEqualizerContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        AudioEqualizerContentView()
+            .environmentObject(AudioEngineViewModel())
+            .previewInterfaceOrientation(.landscapeLeft)
+            .frame(width: 1024, height: 768)
     }
-
-
+}

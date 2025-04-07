@@ -13,4 +13,3 @@ struct MIDIMapping: Identifiable, Codable, Equatable, Hashable {
     // 未割当の場合は -1 などの値で管理
     var midiCC: Int
 }
-

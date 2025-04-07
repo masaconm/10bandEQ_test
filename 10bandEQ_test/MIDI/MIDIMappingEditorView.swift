@@ -17,7 +17,6 @@ extension MIDIEndpointRef {
     }
 }
 
-
 /// MIDI マッピングの一覧を表形式で表示し、各行をタップすると詳細編集画面へ遷移するビュー
 struct MIDIMappingEditorView: View {
     @Binding var mappings: [MIDIMapping]
@@ -46,8 +45,6 @@ struct MIDIMappingEditorView: View {
         let source = MIDIGetSource(0)
         return source.getName() // ここを修正
     }
-
-
     
     /// KORG nanoKONTROL用のプリセットマッピング（必要に応じて調整してください）
     var korgPresetMappings: [MIDIMapping] {
@@ -152,4 +149,3 @@ struct MIDIMappingDetailEditor: View {
         }
     }
 }
-

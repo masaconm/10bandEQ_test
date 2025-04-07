@@ -1,4 +1,4 @@
-////EQContainerView.swift
+//// EQContainerView.swift
 //
 import SwiftUI
 import AVFoundation
@@ -13,36 +13,39 @@ struct EQContainerView: View {
     @State private var isLoadButtonPressed = false
     @State private var isPickerButtonPressed = false
     @State private var isPlaylistButtonPressed = false
-
     
     private var eqBands: [Float] {
         viewModel.eqBandsFrequencies
     }
-
+    
     var body: some View {
         GeometryReader { geo in
             let contentHeight = geo.size.height * 0.9
-
+            
             VStack(spacing: 10) {
                 // MARK: - EQ & ボタン列（3列構成）
                 HStack(alignment: .top, spacing: 10) {
-                    
                     // MARK: 左：操作ボタン列
-                    // HI / MID / LOW
                     VStack(spacing: 8) {
                         ForEach(["HI", "MID", "LOW"], id: \.self) { name in
                             let isSelected = selectedBands.contains(name)
+                            
                             Button(action: {
                                 if isSelected {
                                     selectedBands.remove(name)
                                 } else {
-                                    selectedBands = [name]
-                                    viewModel.applyBandOnly(name)
+                                    selectedBands.insert(name)
                                 }
+                                
+                                viewModel.applySelectedBands(
+                                    low: selectedBands.contains("LOW"),
+                                    mid: selectedBands.contains("MID"),
+                                    high: selectedBands.contains("HI")
+                                )
                             }) {
                                 Text(name)
                                     .font(.system(size: 16, weight: .heavy))
-                                    .foregroundColor(isSelected ? .black : Color(hex: "#ccffff")) // 選択中は黒文字
+                                    .foregroundColor(isSelected ? .black : Color(hex: "#ccffff"))
                                     .frame(width: 60, height: 60)
                                     .background(
                                         RoundedRectangle(cornerRadius: 4)
@@ -60,7 +63,6 @@ struct EQContainerView: View {
                             .buttonStyle(PlainButtonStyle())
                         }
                         
-                        
                         // FLAT ボタン
                         Button(action: {
                             selectedBands.removeAll()
@@ -68,7 +70,7 @@ struct EQContainerView: View {
                         }) {
                             Text("FLAT")
                                 .font(.system(size: 16, weight: .heavy))
-                                .foregroundColor(isFlatButtonPressed ? .black : Color(hex: "#ccffff")) // ← ここだけ変更！
+                                .foregroundColor(isFlatButtonPressed ? .black : Color(hex: "#ccffff"))
                                 .frame(width: 60, height: 60)
                                 .background(
                                     RoundedRectangle(cornerRadius: 4)
@@ -90,73 +92,44 @@ struct EQContainerView: View {
                                 .onEnded { _ in isFlatButtonPressed = false }
                         )
                         
-                        // 録音・再生ボタン
-                        VStack(spacing: 8) {
-//                            // 録音 これから実装20250328
-//                            Button(action: { isRecording.toggle() }) {
-//                                ZStack {
-//                                    RoundedRectangle(cornerRadius: 4)
-//                                        .fill(isRecording ? Color(hex: "#d82c19") : Color(hex: "#292b2a")) // 背景色切り替え
-//                                        .frame(width: 60, height: 60)
-//                                        .overlay(
-//                                            RoundedRectangle(cornerRadius: 4)
-//                                                .stroke(Color(hex: "#202425"), lineWidth: 1)
-//                                        )
-//                                        .shadow(
-//                                            color: isRecording ? Color(hex: "#d82c19").opacity(0.8) : .clear,
-//                                            radius: isRecording ? 12 : 0
-//                                        )
-//                                    
-//                                    Image(systemName: "record.circle")
-//                                        .resizable()
-//                                        .frame(width: 30, height: 30)
-//                                        .foregroundColor(Color(hex: "#ccffff")) // 常に同じ色
-//                                }
-//                            }
-//                            .buttonStyle(PlainButtonStyle())
-                            
-                            // 再生
-                            Button(action: {
-                                viewModel.togglePlayback()
-                            }) {
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 4)
-                                        .fill(viewModel.playerNode.isPlaying ? Color(hex: "#d82c19") : Color(hex: "#292b2a")) // 背景切り替え
-                                        .frame(width: 60, height: 60)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 4)
-                                                .stroke(Color(hex: "#202425"), lineWidth: 1)
-                                        )
-                                        .shadow(
-                                            color: viewModel.playerNode.isPlaying ? Color(hex: "#d82c19").opacity(0.8) : .clear,
-                                            radius: viewModel.playerNode.isPlaying ? 12 : 0
-                                        )
-                                    
-                                    Image(systemName: "play.fill")
-                                        .resizable()
-                                        .frame(width: 25, height: 25)
-                                        .foregroundColor(Color(hex: "#ccffff")) // 常に同じ色
-                                }
+                        // 再生
+                        Button(action: {
+                            viewModel.togglePlayback()
+                        }) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(viewModel.playerNode.isPlaying ? Color(hex: "#d82c19") : Color(hex: "#292b2a"))
+                                    .frame(width: 60, height: 60)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .stroke(Color(hex: "#202425"), lineWidth: 1)
+                                    )
+                                    .shadow(
+                                        color: viewModel.playerNode.isPlaying ? Color(hex: "#d82c19").opacity(0.8) : .clear,
+                                        radius: viewModel.playerNode.isPlaying ? 12 : 0
+                                    )
+                                
+                                Image(systemName: "play.fill")
+                                    .resizable()
+                                    .frame(width: 25, height: 25)
+                                    .foregroundColor(Color(hex: "#ccffff"))
                             }
-                            .buttonStyle(PlainButtonStyle())
-                            .disabled(viewModel.isLoadingWaveform || viewModel.sampleBuffer == nil)
-
-                            
                         }
+                        .buttonStyle(PlainButtonStyle())
+                        .disabled(viewModel.isLoadingWaveform || viewModel.sampleBuffer == nil)
                     }
                     .padding()
                     .frame(width: 80, height: contentHeight, alignment: .top)
                     .background(Color(hex: "#19191b"))
                     .cornerRadius(8)
-                    .padding(.trailing, 10) // 右外側に間隔を追加
-
+                    .padding(.trailing, 10)
                     
                     // MARK: 中央：EQ + GAIN + LEVEL（幅拡張）
                     HStack(alignment: .top, spacing: 20) {
                         eqSlidersView(
                             sliderHeight: contentHeight * 0.66,
                             labelHeight: contentHeight * 0.2,
-                            eqAreaWidth: geo.size.width * 0.65, // 幅を広げる
+                            eqAreaWidth: geo.size.width * 0.65,
                             containerHeight: contentHeight
                         )
                         gainSliderView(
@@ -167,7 +140,6 @@ struct EQContainerView: View {
                         levelMeterView(
                             sliderHeight: contentHeight * 0.66,
                             labelHeight: contentHeight * 0.2
-                            
                         )
                     }
                     .padding(10)
@@ -175,18 +147,15 @@ struct EQContainerView: View {
                     .background(Color(hex: "#19191b"))
                     .cornerRadius(8)
                     
-                    
-                    
                     // MARK: 右カラム（Preset + Extra Panel）
                     VStack(spacing: 8) {
-                        
                         // Preset枠
                         VStack(spacing: 8) {
                             Text("EQ Set")
                                 .padding(.top, 12)
                                 .foregroundColor(.white)
                                 .font(.system(size: 12, weight: .bold))
-
+                            
                             // SAVE
                             Button(action: {
                                 activeSheet = .savePreset
@@ -214,7 +183,7 @@ struct EQContainerView: View {
                                     .onChanged { _ in isSaveButtonPressed = true }
                                     .onEnded { _ in isSaveButtonPressed = false }
                             )
-
+                            
                             // LOAD
                             Button(action: {
                                 activeSheet = .loadPreset
@@ -247,25 +216,19 @@ struct EQContainerView: View {
                         .frame(maxWidth: .infinity)
                         .background(Color(hex: "#19191b"))
                         .cornerRadius(8)
-
-                        // Extra Panel 枠（Select Audio File / Playlist = 画像ボタン、MIDI Mapping = テキストボタン）
+                        
+                        // Extra Panel 枠
                         VStack(spacing: 8) {
-                            // Select Audio File → アイコンボタン
-//                            Button(action: {
-//                                activeSheet = .picker
-//                            }) {
-//                                Image("list_icon")
-//                                    .presetStyleImageButton()
-//                            }
+                            // Select Audio File
                             Button(action: {
                                 activeSheet = .picker
                             }) {
                                 Image("list_icon")
                                     .resizable()
-                                    .renderingMode(.template) // ← アイコンの色を変更可能にする
-                                    .frame(width: 30, height: 30) //  アイコンサイズ調整（小さめ）
-                                    .foregroundColor(isPickerButtonPressed ? .black : Color(hex: "#ccffff")) //  タップ時色変更
-                                    .frame(width: 60, height: 60) //  ボタンの全体サイズ
+                                    .renderingMode(.template)
+                                    .frame(width: 30, height: 30)
+                                    .foregroundColor(isPickerButtonPressed ? .black : Color(hex: "#ccffff"))
+                                    .frame(width: 60, height: 60)
                                     .background(
                                         RoundedRectangle(cornerRadius: 4)
                                             .fill(isPickerButtonPressed ? Color(hex: "#ccffff") : Color(hex: "#212224"))
@@ -285,15 +248,8 @@ struct EQContainerView: View {
                                     .onChanged { _ in isPickerButtonPressed = true }
                                     .onEnded { _ in isPickerButtonPressed = false }
                             )
-
-
-                            // Playlist → アイコンボタン
-//                            Button(action: {
-//                                activeSheet = .playlist
-//                            }) {
-//                                Image("select_music")
-//                                    .presetStyleImageButton()
-//                            }
+                            
+                            // Playlist ボタン
                             Button(action: {
                                 activeSheet = .playlist
                             }) {
@@ -322,8 +278,7 @@ struct EQContainerView: View {
                                     .onChanged { _ in isPlaylistButtonPressed = true }
                                     .onEnded { _ in isPlaylistButtonPressed = false }
                             )
-
-
+                            
                             Spacer()
                         }
                         .padding(10)
@@ -332,13 +287,12 @@ struct EQContainerView: View {
                         .cornerRadius(8)
                     }
                     .frame(width: 65, height: contentHeight)
-                    .padding(.leading, 15) //  左外側に余白を追加
-
+                    .padding(.leading, 15)
                 }
             }
         }
     }
-
+    
     // MARK: - 共通ボタンスタイル
     func customBottomButton() -> some View {
         self
@@ -350,7 +304,7 @@ struct EQContainerView: View {
             .cornerRadius(6)
             .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(hex: "#202425"), lineWidth: 1))
     }
-
+    
     // MARK: - 共通スライダー
     private func defaultEQSlider(value: Binding<Float>, range: ClosedRange<Float>) -> some View {
         CustomVerticalSlider(
@@ -362,9 +316,20 @@ struct EQContainerView: View {
             fillColor: Color(hex: "#00FFFF"),
             thumbColor: Color(hex: "#363739")
         )
-        
     }
-
+    // MARK: - GAINスライダー
+    private func gainEQSlider(value: Binding<Float>, range: ClosedRange<Float>) -> some View {
+        CustomVerticalSlider(
+            value: value,
+            range: range,
+            thumbWidth: 50,
+            thumbHeight: 30,
+            trackColor: Color(hex: "#0f0f0f"),
+            fillColor: Color(hex: "#A6FFFF"), // GAIN用は別の色
+            thumbColor: Color(hex: "#363739")
+        )
+    }
+    
     // MARK: - 各表示View
     private func eqSlidersView(
         sliderHeight: CGFloat,
@@ -430,54 +395,50 @@ struct EQContainerView: View {
                 }
             }
         }
-        .padding(.leading, 10) // ← ここで余白を加える
-        .frame(width: eqAreaWidth - 10) // ← 全体の幅を調整して詰まりを防ぐ
+        .padding(.leading, 10)
+        .frame(width: eqAreaWidth - 10)
     }
-
-
+    
     // MARK: - GAIN
     private func gainSliderView(sliderHeight: CGFloat, labelHeight: CGFloat, gainSliderWidth: CGFloat) -> some View {
         VStack(spacing: 0.5) {
-            defaultEQSlider(value: $viewModel.gain, range: 0...2)
+            gainEQSlider(value: $viewModel.gain, range: 0...2)
                 .frame(width: 15, height: sliderHeight)
-
+            
             Text("Gain")
                 .font(.system(size: 8))
                 .foregroundColor(.white)
                 .frame(width: 60, height: labelHeight / 4)
                 .padding(.top, 10)
-
+            
             Text(String(format: "%.2f", viewModel.gain))
                 .font(.system(size: 9, design: .monospaced))
                 .foregroundColor(.white)
                 .frame(width: 60, height: labelHeight / 4)
         }
-        .frame(width: gainSliderWidth, height: sliderHeight + labelHeight, alignment: .top) // 揃え
+        .frame(width: gainSliderWidth, height: sliderHeight + labelHeight, alignment: .top)
         .padding(.leading, 20)
     }
-
+    
     // MARK: - LEVEL
     private func levelMeterView(sliderHeight: CGFloat, labelHeight: CGFloat) -> some View {
         VStack(spacing: 0.5) {
             LevelMeterViewSwiftUI(level: viewModel.level)
                 .frame(width: 20, height: sliderHeight)
-
+            
             VStack(spacing: 2) {
                 Text("Current Loudness")
                     .font(.system(size: 8))
                     .foregroundColor(.white)
                     .frame(width: 60, height: labelHeight / 4)
                     .padding(.top, 10)
-
+                
                 Text(String(format: "%.2f dB", viewModel.level))
                     .font(.system(size: 9, design: .monospaced))
                     .foregroundColor(.white)
                     .frame(width: 60, height: labelHeight / 4)
             }
-
         }
-        .frame(height: sliderHeight + labelHeight, alignment: .top) // 上揃え
+        .frame(height: sliderHeight + labelHeight, alignment: .top)
     }
-
 }
-

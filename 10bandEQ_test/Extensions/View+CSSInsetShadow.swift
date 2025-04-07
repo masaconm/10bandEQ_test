@@ -14,7 +14,7 @@ struct CSSInsetShadow: ViewModifier {
     var shadowRadius: CGFloat = 20
     var offsetY: CGFloat = 5
     var opacity: Double = 1.0
-
+    
     func body(content: Content) -> some View {
         content
             .overlay(
@@ -54,7 +54,7 @@ extension View {
             )
         )
     }
-
+    
     /// Preset / Extra Panel 用の共通テキストボタンスタイル
     func presetStyleButton() -> some View {
         self
@@ -93,4 +93,3 @@ extension Image {
             .buttonStyle(PlainButtonStyle())
     }
 }
-

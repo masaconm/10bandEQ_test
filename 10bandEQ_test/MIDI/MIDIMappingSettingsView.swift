@@ -37,7 +37,7 @@ func extractCCFrom(_ message: [UInt8]) -> Int? {
 struct MIDIMappingSettingsView: View {
     @Binding var mappings: [MIDIMapping]
     @Environment(\.presentationMode) var presentationMode
-
+    
     let expectedMappingNames: [String] = [
         "EQ 32Hz", "EQ 64Hz", "EQ 125Hz", "EQ 250Hz", "EQ 500Hz",
         "EQ 1kHz", "EQ 2kHz", "EQ 4kHz", "EQ 8kHz", "EQ 16kHz",
@@ -89,7 +89,7 @@ struct MIDIMappingSettingsView: View {
     }
     
     var body: some View {
-            
+        
         NavigationView {
             VStack(spacing: 0) {
                 //  カスタムヘッダー
@@ -106,7 +106,7 @@ struct MIDIMappingSettingsView: View {
                 .padding(.horizontal)
                 .padding(.top)
                 .padding(.bottom, 20)
-
+                
                 //  接続デバイス表示
                 if !connectedControllers.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
@@ -130,10 +130,10 @@ struct MIDIMappingSettingsView: View {
                         .frame(maxWidth: .infinity, alignment: .leading) //  こちらも左寄せ
                         .padding(.bottom, 20)
                 }
-                    
-
-//// MIDIマッピング編集 リスト本体
-
+                
+                
+                //// MIDIマッピング編集 リスト本体
+                
                 //  見出し行（固定表示）
                 HStack {
                     Text("Name")
@@ -150,8 +150,8 @@ struct MIDIMappingSettingsView: View {
                 .padding(.vertical, 6)
                 .padding(.horizontal)
                 .background(Color(hex: "#2a2e2f"))
-//                .cornerRadius(6)
-
+                //                .cornerRadius(6)
+                
                 // スクロール可能なリスト（2行目以降）
                 ScrollView {
                     VStack(spacing: 6) {
@@ -160,16 +160,16 @@ struct MIDIMappingSettingsView: View {
                                 Text(mapping.parameterName)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .foregroundColor(.white)
-
+                                
                                 Text(mapping.midiCC >= 0 ? "CC \(mapping.midiCC)" : "None")
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .foregroundColor(.white)
-
+                                
                                 Text(mapping.midiCC >= 0 ? "On" : "Off")
                                     .foregroundColor(mapping.midiCC >= 0 ? .green : .gray)
                                     .fontWeight(.bold)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-
+                                
                                 Button("Edit") {
                                     editingMapping = mapping
                                     showEditOptions = true
@@ -181,15 +181,15 @@ struct MIDIMappingSettingsView: View {
                             .padding(.vertical, 6)
                             .padding(.horizontal)
                             .background(index % 2 == 0 ? Color(hex: "#46484a") : Color(hex: "#46484a")) //  交互色
-//                            .cornerRadius(6)
+                            //                            .cornerRadius(6)
                         }
                     }
                 }
                 .background(Color(hex: "#393d40"))
-
-
-
-
+                
+                
+                
+                
             }
             .background(Color(hex: "#393d40"))
             .navigationBarHidden(true)
@@ -228,10 +228,5 @@ struct MIDIMappingSettingsView: View {
                 }
             })
         }
-        }
     }
-
-
-
-
-
+}

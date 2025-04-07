@@ -13,7 +13,7 @@ import AVFoundation
 struct PlaylistView: View {
     @Environment(\.presentationMode) var presentationMode
     @ObservedObject var viewModel: AudioEngineViewModel
-
+    
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
@@ -30,7 +30,7 @@ struct PlaylistView: View {
                 }
                 .padding(.horizontal)
                 .padding(.top)
-
+                
                 List {
                     ForEach(viewModel.playlistItems) { item in
                         HStack {
@@ -46,9 +46,9 @@ struct PlaylistView: View {
                                 viewModel.loadPlaylistItem(item)
                                 presentationMode.wrappedValue.dismiss()
                             }
-
+                            
                             Spacer()
-
+                            
                             Button(action: {
                                 if let index = viewModel.playlistItems.firstIndex(where: { $0.id == item.id }) {
                                     viewModel.playlistItems.remove(at: index)
@@ -70,7 +70,7 @@ struct PlaylistView: View {
                     }
                 }
                 .listStyle(PlainListStyle())
-
+                
                 Spacer()
             }
             .background(Color(hex: "#393d40"))
