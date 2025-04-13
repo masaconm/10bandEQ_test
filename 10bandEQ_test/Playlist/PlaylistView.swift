@@ -17,7 +17,7 @@ struct PlaylistView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // ✅ カスタムヘッダー（左：タイトル／右：Done）
+                //  カスタムヘッダー（左：タイトル／右：Done）
                 HStack {
                     Text("Playlist")
                         .font(.headline)
@@ -74,7 +74,7 @@ struct PlaylistView: View {
                 Spacer()
             }
             .background(Color(hex: "#393d40"))
-            .navigationBarHidden(true) // ✅ ナビバーを非表示にしてカスタムヘッダー使用
+            .navigationBarHidden(true) //  ナビバーを非表示にしてカスタムヘッダー使用
         }
     }
 }

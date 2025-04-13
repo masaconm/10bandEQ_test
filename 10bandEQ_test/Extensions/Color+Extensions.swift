@@ -14,7 +14,7 @@ extension Color {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int = UInt64()
         Scanner(string: hex).scanHexInt64(&int)
-
+        
         let r, g, b, a: UInt64
         switch hex.count {
         case 3: // RGB (12-bit)
@@ -48,7 +48,7 @@ extension Color {
         default:
             (r, g, b, a) = (0, 0, 0, 255)
         }
-
+        
         self.init(
             .sRGB,
             red: Double(r) / 255,

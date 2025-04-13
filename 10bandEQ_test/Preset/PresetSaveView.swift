@@ -10,7 +10,7 @@ struct PresetSaveView: View {
         NavigationView {
             VStack(spacing: 16) {
                 
-                // ✅ カスタムヘッダー：左寄せタイトル＋右にキャンセルボタン
+                //  カスタムヘッダー：左寄せタイトル＋右にキャンセルボタン
                 HStack {
                     Text("Save Preset")
                         .font(.headline)
@@ -101,7 +101,7 @@ struct PresetSaveView: View {
                 Spacer(minLength: 10)
             }
             .background(Color(hex: "#393d40"))
-            .navigationBarHidden(true) // ✅ デフォルトのナビゲーションバーを非表示に
+            .navigationBarHidden(true) //  デフォルトのナビゲーションバーを非表示に
         }
     }
 }

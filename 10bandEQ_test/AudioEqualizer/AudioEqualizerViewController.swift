@@ -10,11 +10,6 @@ import AVFoundation
 import UniformTypeIdentifiers
 // Waveform ライブラリは、SmoothWaveformView で独自実装するため不要
 
-// MARK: - Clamp Function
-/// 値を minValue と maxValue の範囲に収める（クランプする）関数
-func clamp<T: Comparable>(_ value: T, _ minValue: T, _ maxValue: T) -> T {
-    return min(max(value, minValue), maxValue)
-}
 
 // MARK: - SampleBuffer
 /// 波形表示用のサンプル配列を保持する構造体
@@ -181,35 +176,6 @@ class AudioEngineViewModel: ObservableObject {
     }
     // MARK: - 「HI / MID / LOW ボタンを押したときに、それ以外の帯域を完全に切りたい（バイパス or カット）」
     //プリセットとは別に、それぞれ専用の切り替え関数を用意
-    //既存では単一選択
-    //    func applyBandOnly(_ band: String) {
-    //        for (index, bandNode) in eqNode.bands.enumerated() {
-    //            bandNode.filterType = .parametric
-    //
-    //            // 初期化（バンドを "切る"）
-    //            bandNode.gain = -40
-    //            bandNode.bypass = false
-    //
-    //            switch band {
-    //            case "LOW" where index <= 2:
-    //                bandNode.gain = 6
-    //                bandNode.filterType = .lowShelf
-    //            case "MID" where index >= 3 && index <= 6:
-    //                bandNode.gain = 5
-    //            case "HI" where index >= 7:
-    //                bandNode.gain = 6
-    //                bandNode.filterType = .highShelf
-    //            default:
-    //                break
-    //            }
-    //
-    //            // UI側にも反映
-    //            if eqValues.indices.contains(index) {
-    //                eqValues[index] = bandNode.gain
-    //            }
-    //        }
-    //    }
-    
     //20250407 更新テスト
     // 複数バンド選択に対応した関数
     func applySelectedBands(low: Bool, mid: Bool, high: Bool) {
@@ -248,7 +214,6 @@ class AudioEngineViewModel: ObservableObject {
             }
         }
     }
-    
     
     // 組み込みプリセットおよびユーザープリセット（EQ設定）
     @Published var defaultPresets: [EQPreset] = [
@@ -334,15 +299,6 @@ class AudioEngineViewModel: ObservableObject {
                         }
                     }
                 }
-            }
-        }
-        
-        // 20250322 録音した音声をPlaylistへ追加
-        NotificationCenter.default.addObserver(forName: .newRecordingFinished, object: nil, queue: .main) { [weak self] notification in
-            guard let self = self else { return }
-            if let url = notification.object as? URL {
-                print("📥 通知で受け取った録音ファイル: \(url.lastPathComponent)")
-                self.addAudioFileToPlaylist(url: url)
             }
         }
     }
@@ -449,7 +405,7 @@ class AudioEngineViewModel: ObservableObject {
     // MARK: - 再生中の進捗更新処理
     func startPlaybackTimer() {
         playbackTimer?.invalidate()
-        playbackTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+        playbackTimer = Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { [weak self] _ in
             guard let self = self,
                   let file = self.audioFile,
                   let nodeTime = self.playerNode.lastRenderTime,
@@ -594,172 +550,11 @@ class AudioEngineViewModel: ObservableObject {
     }
 } // <-- AudioEngineViewModel 終了
 
-// MARK: - 以降、その他の View 定義（SmoothWaveformView, LevelMeterViewSwiftUI, CustomVerticalSlider, HeaderView, EQContainerView, AudioEqualizerContentView, etc.）…
+// MARK: - 以降、その他の View 定義（CustomVerticalSlider, HeaderView, EQContainerView, AudioEqualizerContentView, etc.）…
 
 
-// 以降、SmoothWaveformView、LevelMeterViewSwiftUI、CustomVerticalSlider、HeaderView、EQContainerView、AudioEqualizerContentView など他の View 定義は続きます…
 
 
-// MARK: - SmoothWaveformView (新UI)
-// 【仕様】
-// - 音声読み込み時は波形は画面左寄せで表示
-// - zoomScale に応じて波形の横幅が拡大
-// - playbackProgress (0...1) に基づき、波形全体での x 座標を計算し、
-//   zoomScale > 1 の場合はオフセットを計算して、常に再生位置が画面中央に表示される
-struct SmoothWaveformView: View {
-    let sampleBuffer: SampleBuffer   // -1...1 に正規化済みサンプル
-    let playbackProgress: Double     // 0...1 (再生進行度)
-    let zoomScale: CGFloat           // 拡大率（外部から渡す）
-    
-    var body: some View {
-        GeometryReader { geo in
-            // コンテナサイズ
-            let containerWidth = geo.size.width
-            let containerHeight = geo.size.height
-            
-            // 波形全体の横幅 = コンテナ幅 × zoomScale
-            let waveformWidth = containerWidth * zoomScale
-            
-            // 再生位置の x 座標 = playbackProgress × waveformWidth
-            let playbackX = CGFloat(playbackProgress) * waveformWidth
-            
-            // 拡大時は、再生位置が常に画面中央に来るように offset を計算
-            let offsetX: CGFloat = waveformWidth > containerWidth ? (containerWidth / 2 - playbackX) : 0
-            
-            // サンプル配列から各点の座標を生成
-            let samples = sampleBuffer.samples.map { CGFloat($0) }
-            let sampleCount = max(samples.count, 1)
-            let step = waveformWidth / CGFloat(sampleCount - 1)
-            let points: [CGPoint] = samples.enumerated().map { (index, sample) in
-                let x = CGFloat(index) * step
-                // サンプル値により上下の位置を決定（中央を 0 とする）
-                let y = containerHeight / 2 - sample * (containerHeight / 2)
-                return CGPoint(x: x, y: y)
-            }
-            
-            ZStack(alignment: .leading) {
-                // 波形を滑らかな曲線（補間 Path）として描画
-                Path.smoothPath(with: points)
-                    .stroke(Color(hex: "#00FFFF"), lineWidth: 1)
-                    .frame(width: waveformWidth, height: containerHeight)
-                    .offset(x: offsetX)
-            }
-        }
-    }
-}
-
-extension Path {
-    /// 点群から滑らかな曲線の Path を生成する拡張関数
-    static func smoothPath(with points: [CGPoint]) -> Path {
-        var path = Path()
-        guard points.count > 1 else { return path }
-        path.move(to: points[0])
-        for i in 1..<points.count {
-            let prev = points[i - 1]
-            let curr = points[i]
-            let midPoint = CGPoint(x: (prev.x + curr.x) / 2, y: (prev.y + curr.y) / 2)
-            path.addQuadCurve(to: midPoint, control: prev)
-            if i == points.count - 1 {
-                path.addQuadCurve(to: curr, control: curr)
-            }
-        }
-        return path
-    }
-}
-
-// MARK: - LevelMeterViewSwiftUI (新デザイン)
-// 【旧仕様】
-// 下から上にしきい値ごとに色を積み上げる表示
-//struct LevelMeterViewSwiftUI: View {
-//    var level: Float  // 現在の dB 値
-//    // しきい値とそれに対応する色（上に行くほど dB 値が大きい＝音が大きい）
-//    let thresholds: [(lkfs: Float, color: Color)] = [
-//        (0, .red),
-//        (-3, .red),
-//        (-6, .red),
-//        (-9, .orange),
-//        (-18, .orange),
-//        (-23, .yellow),
-//        (-27, .yellow),
-//        (-36, .green),
-//        (-45, .green),
-//        (-54, .green),
-//        (-64, .green)
-//    ]
-//    var body: some View {
-//        GeometryReader { geo in
-//            let maxHeight = geo.size.height
-//            let sectionHeight = maxHeight / CGFloat(thresholds.count)
-//            VStack(spacing: 0) {
-//                // thresholds を下から上に積み上げる
-//                ForEach(thresholds, id: \.lkfs) { threshold in
-//                    Rectangle()
-//                        .fill(level > threshold.lkfs ? threshold.color : Color.clear)
-//                        .frame(height: sectionHeight)
-//                }
-//            }
-//            .frame(maxHeight: .infinity, alignment: .bottom)
-//            .background(Color.black)
-//        }
-//    }
-//}
-
-//20250407 積み上げバーにグラデーションを追加
-struct LevelMeterViewSwiftUI: View {
-    var level: Float  // 現在の dB 値
-    
-    // しきい値と、それに対応するカラー（LED風に滑らか）
-    let thresholds: [(lkfs: Float, color: Color)] = [
-        (0, .red),
-        (-3, .red),
-        (-6, .orange),   // ← 赤からオレンジに変化
-        (-9, .orange),
-        (-18, .yellow),  // ← オレンジから黄色に変化
-        (-23, .yellow),
-        (-27, .green),   // ← 黄色から緑に変化
-        (-36, .green),
-        (-45, .green),
-        (-54, .green),
-        (-64, .green)
-    ]
-    
-    
-    var body: some View {
-        GeometryReader { geo in
-            let maxHeight = geo.size.height
-            let sectionHeight = maxHeight / CGFloat(thresholds.count)
-            
-            VStack(spacing: 0) {
-                ForEach(0..<thresholds.count, id: \.self) { i in
-                    let current = thresholds[i]
-                    let next = i < thresholds.count - 1 ? thresholds[i + 1] : current
-                    
-                    Rectangle()
-                        .fill(
-                            level > current.lkfs
-                            ? (
-                                current.color != next.color
-                                ? AnyShapeStyle(
-                                    LinearGradient(
-                                        gradient: Gradient(colors: [current.color, next.color]),
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                )
-                                : AnyShapeStyle(current.color)
-                            )
-                            : AnyShapeStyle(Color.clear)
-                        )
-                        .frame(height: sectionHeight)
-                }
-            }
-            .frame(maxHeight: .infinity, alignment: .bottom)
-            .background(Color.black)
-        }
-    }
-    
-    
-}
 
 // MARK: - Custom Slider Components
 //-つまみ部分：固定サイズの正方形
