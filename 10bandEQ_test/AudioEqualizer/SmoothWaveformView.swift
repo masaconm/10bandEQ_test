@@ -25,6 +25,10 @@ struct SmoothWaveformView: View {
     let sampleBuffer: SampleBuffer
     let playbackProgress: Double
     let zoomScale: CGFloat
+<<<<<<< HEAD
+=======
+   
+>>>>>>> 225a73d (20250417 Recodeing Modeへ遷移後のモニタリングモードと録音機能、録音音声のwavとmp3でのDL機能を追加、関連するUI調整をしました)
     
     @Environment(\.waveformStyle) var waveformStyle
     

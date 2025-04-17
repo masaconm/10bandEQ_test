@@ -1,124 +1,12 @@
 //
-//  AudioEqualizerViewController.swift
+//  Untitled.swift
 //  10bandEQ_test
 //
-//  Created by 中静暢子 on 2025/02/24.
+//  Created by 中静暢子 on 2025/04/15.
 //
-
 import SwiftUI
 import AVFoundation
 import UniformTypeIdentifiers
-// Waveform ライブラリは、SmoothWaveformView で独自実装するため不要
-
-
-// MARK: - SampleBuffer
-/// 波形表示用のサンプル配列を保持する構造体
-struct SampleBuffer {
-    var samples: [Float]
-}
-
-// MARK: - EQPreset
-/// EQ プリセットのデータ構造。ユーザーが設定した EQ の各バンドの値を保持する。
-/// Codable に準拠しているので、JSON での保存／読み込みが可能。
-/// EQPreset に filterType 情報を含める（拡張）
-struct EQPreset: Identifiable, Codable {
-    let id: UUID
-    var name: String
-    var eqValues: [Float]
-    var filterTypeRawValues: [Int]?
-    
-    init(name: String, eqValues: [Float], filterTypes: [AVAudioUnitEQFilterType]? = nil) {
-        self.id = UUID()
-        self.name = name
-        self.eqValues = eqValues
-        self.filterTypeRawValues = filterTypes?.map { $0.rawValue }
-    }
-    
-    var filterTypes: [AVAudioUnitEQFilterType]? {
-        filterTypeRawValues?.compactMap { AVAudioUnitEQFilterType(rawValue: $0) }
-    }
-}
-
-// MARK: - PlaylistItem
-/// プレイリストに追加される音声ファイルの情報を保持する構造体
-/// URL、タイトル、再生時間（秒）を含み、Codable に準拠しているので永続保存が可能。
-struct PlaylistItem: Identifiable, Codable {
-    var id = UUID()
-    let url: URL
-    let title: String
-    let duration: Double  // seconds
-    
-    /// 指定した URL から AVAudioFile を読み込み、再生時間などを計算して初期化する。
-    init?(url: URL) {
-        self.url = url
-        self.title = url.lastPathComponent
-        do {
-            let file = try AVAudioFile(forReading: url)
-            let sampleRate = file.processingFormat.sampleRate
-            self.duration = Double(file.length) / sampleRate
-        } catch {
-            print("Failed to load file for duration: \(error)")
-            return nil
-        }
-    }
-}
-
-// MARK: - DocumentPicker
-/// UIDocumentPickerViewController を SwiftUI で利用するための UIViewControllerRepresentable
-/// ユーザーが音声ファイルを選択するために使用する。
-struct DocumentPicker: UIViewControllerRepresentable {
-    var onPick: ([URL]) -> Void
-    
-    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-        // UTType.audio により音声ファイルを選択対象に
-        let controller = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.audio], asCopy: true)
-        controller.delegate = context.coordinator
-        controller.allowsMultipleSelection = true
-        controller.modalPresentationStyle = .formSheet
-        return controller
-    }
-    
-    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) { }
-    
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onPick: onPick)
-    }
-    
-    // Coordinator は UIDocumentPickerDelegate を実装し、選択結果を onPick クロージャに渡す
-    class Coordinator: NSObject, UIDocumentPickerDelegate {
-        var onPick: ([URL]) -> Void
-        init(onPick: @escaping ([URL]) -> Void) { self.onPick = onPick }
-        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-            onPick(urls)
-        }
-    }
-}
-
-// MARK: - グローバル関数：ファイルを Documents ディレクトリにコピーする
-/// 選択されたファイルを永続保存可能な場所（Documents ディレクトリ）にコピーする関数。
-func copyFileToDocuments(url: URL) -> URL? {
-    let fileManager = FileManager.default
-    // Documents ディレクトリの取得
-    guard let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
-        return nil
-    }
-    let destinationURL = documentsDir.appendingPathComponent(url.lastPathComponent)
-    do {
-        // 同名のファイルが存在すれば削除
-        if fileManager.fileExists(atPath: destinationURL.path) {
-            try fileManager.removeItem(at: destinationURL)
-        }
-        // コピー実行
-        try fileManager.copyItem(at: url, to: destinationURL)
-        return destinationURL
-    } catch {
-        print("Failed to copy file: \(error)")
-        return nil
-    }
-}
-
-<<<<<<< HEAD
-//
 
 // MARK: - AudioEngineViewModel (修正版)
 // AudioSessionManager, MIDIManager は別ファイルにある前提です。
@@ -150,11 +38,23 @@ class AudioEngineViewModel: ObservableObject {
     var audioFile: AVAudioFile? = nil
     var pausedFrame: AVAudioFramePosition = 0
     var playbackTimer: Timer?
-    
+    var audioEngineManager = AudioEngineManager()
+
     // プレイリスト関連
     @Published var playlistItems: [PlaylistItem] = []
     @Published var currentPlaylistItem: PlaylistItem? = nil
     
+    
+    
+
+    
+    func stopMonitoring() {
+        audioEngine.inputNode.removeTap(onBus: 0)
+        audioEngine.stop()
+//        isMonitoringOnly = false
+        print("🛑 Monitoring stopped")
+    }
+
     // MARK: - プリセット適用 + 各バンドのbypass制御
     func applyPresetWithBypass(_ preset: EQPreset) {
         eqValues = preset.eqValues
@@ -268,6 +168,9 @@ class AudioEngineViewModel: ObservableObject {
         // オーディオセッションは別ファイルの AudioSessionManager を利用
         AudioSessionManager.configureSession()
         
+
+
+        
         // MIDIManager の初期化
         midiManager = MIDIManager()
         midiManager?.midiMessageHandler = { [weak self] midiMessage in
@@ -365,16 +268,19 @@ class AudioEngineViewModel: ObservableObject {
         if playerNode.isPlaying {
             if let nodeTime = playerNode.lastRenderTime,
                let playerTime = playerNode.playerTime(forNodeTime: nodeTime) {
-                pausedFrame = max(playerTime.sampleTime, 0)
+                pausedFrame = max(0, playerTime.sampleTime)
             }
             playerNode.stop()
             playbackTimer?.invalidate()
             playbackTimer = nil
         } else {
             guard let file = audioFile else { return }
-            pausedFrame = max(pausedFrame, 0)
+            
+            pausedFrame = max(0, pausedFrame)
             let totalFrames = file.length
-            let framesToPlay = AVAudioFrameCount(totalFrames - pausedFrame)
+            let remainingFrames = max(0, totalFrames - pausedFrame)
+            let framesToPlay = AVAudioFrameCount(remainingFrames)
+            
             if framesToPlay > 0 {
                 playerNode.scheduleSegment(file,
                                            startingFrame: pausedFrame,
@@ -382,17 +288,24 @@ class AudioEngineViewModel: ObservableObject {
                                            at: nil,
                                            completionHandler: nil)
             }
+            
             playerNode.play()
             startPlaybackTimer()
         }
     }
     
+    
     func seekToCurrentPausedFrameAndResume() {
         guard let file = audioFile else { return }
+        
         playerNode.stop()
-        pausedFrame = max(pausedFrame, 0)
+        
         let totalFrames = file.length
-        let framesToPlay = AVAudioFrameCount(totalFrames - pausedFrame)
+        pausedFrame = max(0, min(pausedFrame, totalFrames - 1))
+        
+        let remainingFrames = max(0, totalFrames - pausedFrame)
+        let framesToPlay = AVAudioFrameCount(remainingFrames)
+        
         if framesToPlay > 0 {
             playerNode.scheduleSegment(file,
                                        startingFrame: pausedFrame,
@@ -400,8 +313,10 @@ class AudioEngineViewModel: ObservableObject {
                                        at: nil,
                                        completionHandler: nil)
         }
+        
         playerNode.play()
     }
+    
     
     // MARK: - 再生中の進捗更新処理
     func startPlaybackTimer() {
@@ -492,19 +407,26 @@ class AudioEngineViewModel: ObservableObject {
     }
     
     func addAudioFileToPlaylist(url: URL) {
-        if let permanentURL = copyFileToDocuments(url: url),
-           let newItem = PlaylistItem(url: permanentURL) {
-            if !playlistItems.contains(where: { $0.url == newItem.url }) {
-                playlistItems.append(newItem)
-                savePlaylistToDefaults()
-            }
-            if audioFile == nil {
-                loadPlaylistItem(newItem)
-            }
-        } else {
-            print("Failed to copy and add the audio file to playlist")
+        print("🧩 プレイリスト追加リクエスト: \(url.lastPathComponent)")
+        
+        // ✅ 既にURLが登録済みならスキップ
+        if playlistItems.contains(where: { $0.url.standardizedFileURL == url.standardizedFileURL }) {
+            print("⚠️ 既に追加済みのファイル: \(url.lastPathComponent)")
+            return
         }
+        
+        guard let newItem = PlaylistItem(url: url) else {
+            print("⚠️ PlaylistItemの生成に失敗")
+            return
+        }
+        
+        playlistItems.append(newItem)
+        savePlaylistToDefaults()
+        print("✅ プレイリストに追加: \(newItem.title)")
     }
+    
+    
+    
     
     // MARK: - EQプリセット管理
     
@@ -551,95 +473,5 @@ class AudioEngineViewModel: ObservableObject {
     }
 } // <-- AudioEngineViewModel 終了
 
-// MARK: - 以降、その他の View 定義（CustomVerticalSlider, HeaderView, EQContainerView, AudioEqualizerContentView, etc.）…
 
 
-
-
-
-=======
->>>>>>> 225a73d (20250417 Recodeing Modeへ遷移後のモニタリングモードと録音機能、録音音声のwavとmp3でのDL機能を追加、関連するUI調整をしました)
-// MARK: - Custom Slider Components
-//-つまみ部分：固定サイズの正方形
-struct SliderThumb: View {
-    var thumbWidth: CGFloat = 50
-    var thumbHeight: CGFloat = 30
-    var thumbColor: Color = Color(hex: "#363739")
-    
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 4)
-                .fill(thumbColor)
-            
-            RoundedRectangle(cornerRadius: 4)
-                .stroke(Color(hex: "#1f2022"), lineWidth: 2)
-            
-            Rectangle()
-                .fill(Color(hex: "#858585"))
-                .frame(width: thumbWidth * 0.6, height: 2) // ✅ 横線！
-        }
-        .frame(width: thumbWidth, height: thumbHeight)
-        .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
-    }
-}
-
-<<<<<<< HEAD
-
-=======
->>>>>>> 225a73d (20250417 Recodeing Modeへ遷移後のモニタリングモードと録音機能、録音音声のwavとmp3でのDL機能を追加、関連するUI調整をしました)
-// MARK: - カスタム Vertical Slider：つまみとトラックを個別に描画する縦型スライダー
-struct CustomVerticalSlider: View {
-    @Binding var value: Float
-    var range: ClosedRange<Float>
-    var thumbWidth: CGFloat = 40          // 横幅
-    var thumbHeight: CGFloat = 30         // 高さ
-    var trackColor: Color = .black
-    var fillColor: Color = .blue
-    var thumbColor: Color = .white
-    
-    var body: some View {
-        GeometryReader { geo in
-            let height = geo.size.height
-            let width = geo.size.width
-            let percentage = CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound))
-            let fillHeight = height * percentage
-            let thumbY = height * (1 - percentage)
-            
-            ZStack {
-                SliderTrack(
-                    percentage: fillHeight,
-                    width: width,
-                    height: height,
-                    trackColor: trackColor,
-                    fillColor: fillColor
-                )
-                
-                SliderThumb(
-                    thumbWidth: thumbWidth,
-                    thumbHeight: thumbHeight,
-                    thumbColor: thumbColor
-                )
-                .position(x: width / 2, y: thumbY)
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { gesture in
-                            let clampedY = min(max(gesture.location.y, 0), height)
-                            let newPercentage = 1 - (clampedY / height)
-                            let newValue = range.lowerBound + Float(newPercentage) * (range.upperBound - range.lowerBound)
-                            self.value = newValue
-                        }
-                )
-            }
-        }
-    }
-}
-
-//    // MARK: - Preview
-struct AudioEqualizerContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        AudioEqualizerContentView()
-            .environmentObject(AudioEngineViewModel())
-            .previewInterfaceOrientation(.landscapeLeft)
-            .frame(width: 1024, height: 768)
-    }
-}
