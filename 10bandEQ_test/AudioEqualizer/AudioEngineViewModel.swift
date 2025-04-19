@@ -39,22 +39,22 @@ class AudioEngineViewModel: ObservableObject {
     var pausedFrame: AVAudioFramePosition = 0
     var playbackTimer: Timer?
     var audioEngineManager = AudioEngineManager()
-
+    
     // プレイリスト関連
     @Published var playlistItems: [PlaylistItem] = []
     @Published var currentPlaylistItem: PlaylistItem? = nil
     
     
     
-
+    
     
     func stopMonitoring() {
         audioEngine.inputNode.removeTap(onBus: 0)
         audioEngine.stop()
-//        isMonitoringOnly = false
+        //        isMonitoringOnly = false
         print("🛑 Monitoring stopped")
     }
-
+    
     // MARK: - プリセット適用 + 各バンドのbypass制御
     func applyPresetWithBypass(_ preset: EQPreset) {
         eqValues = preset.eqValues
@@ -168,8 +168,8 @@ class AudioEngineViewModel: ObservableObject {
         // オーディオセッションは別ファイルの AudioSessionManager を利用
         AudioSessionManager.configureSession()
         
-
-
+        
+        
         
         // MIDIManager の初期化
         midiManager = MIDIManager()

@@ -22,10 +22,9 @@ struct HeaderView: View {
 
                 Spacer()
 
-                // 🔴 録音トグルボタン
+                // 🔴 録音トグルボタン＋録音時間表示
                 HStack(spacing: 8) {
                     Button(action: recordingToggleAction) {
-<<<<<<< HEAD
                         Text(isRecording ? "Stop Recording" : "Recording")
                             .font(.system(size: 14, weight: .semibold))
                             .frame(width: 140, height: 30)
@@ -43,19 +42,7 @@ struct HeaderView: View {
                 }
                 .padding(.trailing, 8)
 
-=======
-                        Text(isRecording ? "Exit Recording Mode" : "Enter Recording Mode")
-                            .font(.system(size: 14, weight: .semibold))
-                            .frame(width: 180, height: 30)
-                            .background(Color(hex: "#333333"))
-                            .foregroundColor(.white)
-                            .cornerRadius(8)
-                    }
-                }
-                .padding(.trailing, 8)
-
-
->>>>>>> 225a73d (20250417 Recodeing Modeへ遷移後のモニタリングモードと録音機能、録音音声のwavとmp3でのDL機能を追加、関連するUI調整をしました)
+                // MIDI Mapping
                 Button("MIDI Mapping", action: midiMappingAction)
                     .font(.system(size: 14, weight: .semibold))
                     .frame(width: 200, height: 30)
@@ -64,6 +51,7 @@ struct HeaderView: View {
                     .cornerRadius(8)
                     .padding(.trailing, 12)
 
+                // 設定ボタン（ギアアイコン）
                 Button(action: settingsAction) {
                     Image(systemName: "gearshape.fill")
                         .resizable()
@@ -76,10 +64,7 @@ struct HeaderView: View {
             .padding(.top, topPadding)
             .padding(.bottom, 5)
         }
-<<<<<<< HEAD
-=======
-        .zIndex(1) // ← Overviewエリア（録音中赤背景）より後ろに配置
->>>>>>> 225a73d (20250417 Recodeing Modeへ遷移後のモニタリングモードと録音機能、録音音声のwavとmp3でのDL機能を追加、関連するUI調整をしました)
+        .zIndex(1) // Overviewエリアより上に配置
     }
 
     private func safeAreaTopInset() -> CGFloat {
